@@ -1,0 +1,10 @@
+# Nunca mandar segredos/certificados/estado local pro contexto de build do
+# Docker - o Dockerfile nao precisa de nada disso, mas sem isso o daemon
+# recebe esses arquivos de qualquer forma so' pra montar o contexto.
+.git/
+.env
+secrets/
+certs/
+backups/
+docs/
+*.md

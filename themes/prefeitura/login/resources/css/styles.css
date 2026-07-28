@@ -1,0 +1,54 @@
+/*
+ * Tema visual da Prefeitura para a tela de login do Keycloak.
+ *
+ * Sobrescreve custom properties (variaveis CSS) que o proprio tema
+ * keycloak.v2/PatternFly 5 expoe para customizacao - abordagem oficial e
+ * "best practice" para este tema: mais robusta que forcar `background-color`
+ * ou `!important` na marra, e sobrevive a atualizacoes de versao do Keycloak
+ * (as classes internas do PatternFly podem mudar; essas variaveis sao o
+ * contrato publico de customizacao).
+ *
+ * Confirmado direto no CSS-fonte do Keycloak 26.7.0 (extraido do jar de
+ * temas) antes de escrever este arquivo - nao e' suposicao.
+ */
+
+:root {
+  /* ---- Logo (variaveis nativas do keycloak.v2 - ja existem, so' trocamos
+     o valor). Ajuste height/width para a proporcao real do seu logo.png. */
+  --keycloak-logo-url: url("../img/logo.png");
+  --keycloak-logo-height: 60px;
+  --keycloak-logo-width: 220px;
+
+  /* ---- Cores institucionais da Prefeitura -------------------------------
+     TROQUE AQUI pelos tons oficiais da identidade visual (hex/RGB). Os
+     valores abaixo sao placeholder - so' servem pra provar que o mecanismo
+     funciona, nao sao as cores reais da prefeitura. */
+  --prefeitura-primary: #0056b3;
+  --prefeitura-primary-hover: #003d82;
+  --prefeitura-on-primary: #ffffff;
+
+  /* ---- Botao primario (Entrar, etc.) - variaveis nativas do PatternFly 5.
+     Confirmado em patternfly.min.css:
+     .pf-v5-c-button.pf-m-primary{background-color:var(--pf-v5-c-button--m-primary--BackgroundColor);
+                                    color:var(--pf-v5-c-button--m-primary--Color)} */
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--prefeitura-primary);
+  --pf-v5-c-button--m-primary--Color: var(--prefeitura-on-primary);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--prefeitura-primary-hover);
+  --pf-v5-c-button--m-primary--hover--Color: var(--prefeitura-on-primary);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--prefeitura-primary-hover);
+  --pf-v5-c-button--m-primary--focus--Color: var(--prefeitura-on-primary);
+}
+
+/* O texto "Keycloak" (div.kc-logo-text span) ja vem oculto por padrao no
+   keycloak.v2 - so a imagem de --keycloak-logo-url aparece. Nada a fazer
+   aqui alem de ja termos trocado a variavel acima. */
+
+/* Links dentro do card de login (ex.: "Esqueceu a senha?", "Registrar-se") */
+.pf-v5-c-login__main a {
+  color: var(--prefeitura-primary);
+}
+
+.pf-v5-c-login__main a:hover,
+.pf-v5-c-login__main a:focus {
+  color: var(--prefeitura-primary-hover);
+}

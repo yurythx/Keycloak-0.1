@@ -1,0 +1,149 @@
+name: CI
+
+# Build fora da VM: esta pipeline builda, valida, escaneia e publica a
+# imagem do Keycloak no GitHub Container Registry. A VM de producao apenas
+# roda "docker compose pull" (ver deploy.sh) - nunca builda nada localmente.
+#
+# Dependencia de acoes de terceiros reduzida ao minimo de proposito
+# (so actions/checkout): shellcheck/hadolint/trivy sao instalados via CLI
+# oficial, e o build/push usa comandos "docker" puros - superficie de
+# supply chain da propria pipeline fica pequena e auditavel.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/keycloak-sso
+
+jobs:
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (shellcheck, hadolint, docker compose config)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+
+      - name: shellcheck nos scripts do repositorio
+        # Glob em vez de lista manual - um script novo nunca mais fica de
+        # fora silenciosamente (foi exatamente isso que quebrou o build
+        # anterior). -S warning: nao trava em achados "info"/"style".
+        run: |
+          shellcheck -S warning *.sh scripts/*.sh scripts/lib/*.sh
+
+      - name: Instalar hadolint
+        run: |
+          curl -sSL -o /usr/local/bin/hadolint \
+            https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+          chmod +x /usr/local/bin/hadolint
+
+      - name: hadolint no Dockerfile
+        run: hadolint Dockerfile
+
+      - name: Validar sintaxe do docker-compose.yml (homologacao e producao/ACME)
+        run: |
+          export POSTGRES_DB=keycloak POSTGRES_USER=keycloak_user \
+                 KC_BOOTSTRAP_ADMIN_USERNAME=kc_admin \
+                 KC_HOSTNAME=https://auth.example.gov.br \
+                 PROXY_TRUSTED_ADDRESSES=172.16.0.0/12 \
+                 AD_DOMAIN=example.local AD_DC_HOSTNAME=dc01.example.local \
+                 AD_DC_IP=192.0.2.10 KC_LOG_LEVEL=INFO \
+                 KEYCLOAK_IMAGE="${IMAGE_NAME}" KEYCLOAK_IMAGE_TAG=ci \
+                 KEYCLOAK_BIND=0.0.0.0 KEYCLOAK_PORT=18443
+          docker compose -f docker-compose.yml config --quiet
+
+  # ---------------------------------------------------------------------------
+  build-scan-push:
+    name: Build, scan (Trivy) e publicar no ghcr.io
+    runs-on: ubuntu-latest
+    needs: lint
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Definir tags da imagem
+        id: tags
+        run: |
+          SHA_TAG="sha-$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version_tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build da imagem (roda sempre, inclusive em PR, para pegar erro cedo)
+        run: |
+          docker build \
+            -t "${IMAGE_NAME}:${{ steps.tags.outputs.sha_tag }}" \
+            -f Dockerfile .
+
+      - name: Instalar Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sudo sh -s -- -b /usr/local/bin
+
+      - name: Relatorio de vulnerabilidades HIGH+CRITICAL (informativo, nao bloqueia)
+        run: |
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            "${IMAGE_NAME}:${{ steps.tags.outputs.sha_tag }}"
+
+      # So' bloqueia em CRITICAL: HIGH em dependencias de terceiros
+      # empacotadas pelo proprio Keycloak (jackson, netty, drivers JDBC
+      # nao usados por nos) e quase impossivel zerar a cada release do
+      # vendor - decisao registrada em docs/ci-cd.md.
+      - name: Gate de seguranca (bloqueia em CRITICAL)
+        run: |
+          trivy image \
+            --severity CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            "${IMAGE_NAME}:${{ steps.tags.outputs.sha_tag }}"
+
+      # A partir daqui so' publica em push real (nao em pull_request)
+      - name: Login no GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Marcar tags adicionais
+        if: github.event_name != 'pull_request'
+        run: |
+          docker tag "${IMAGE_NAME}:${{ steps.tags.outputs.sha_tag }}" "${IMAGE_NAME}:latest"
+          if [ -n "${{ steps.tags.outputs.version_tag }}" ]; then
+            docker tag "${IMAGE_NAME}:${{ steps.tags.outputs.sha_tag }}" "${IMAGE_NAME}:${{ steps.tags.outputs.version_tag }}"
+          fi
+
+      - name: Push para o ghcr.io
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push "${IMAGE_NAME}:${{ steps.tags.outputs.sha_tag }}"
+          docker push "${IMAGE_NAME}:latest"
+          if [ -n "${{ steps.tags.outputs.version_tag }}" ]; then
+            docker push "${IMAGE_NAME}:${{ steps.tags.outputs.version_tag }}"
+          fi
+
+      - name: Resumo
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "### Imagem publicada" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${IMAGE_NAME}:${{ steps.tags.outputs.sha_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${IMAGE_NAME}:latest\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Para travar a producao nesta versao especifica, defina no .env da VM:" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`KEYCLOAK_IMAGE_TAG=${{ steps.tags.outputs.sha_tag }}\`" >> "$GITHUB_STEP_SUMMARY"

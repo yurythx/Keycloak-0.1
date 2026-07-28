@@ -1,0 +1,15 @@
+# Segredos e certificados reais - nunca versionar
+secrets/*
+!secrets/.gitkeep
+certs/*
+!certs/.gitkeep
+.env
+
+# Backups locais
+backups/
+*.sql
+*.sql.gz
+
+# SO / editores
+.DS_Store
+Thumbs.db
