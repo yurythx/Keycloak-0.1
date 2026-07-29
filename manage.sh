@@ -160,6 +160,21 @@ menu_ldap() {
     pause
 }
 
+menu_diagnose_502() {
+    if [ -x scripts/diagnose_502.sh ]; then
+        local proxy_ip
+        proxy_ip="$(ask "IP do proxy externo (opcional, Enter pula)" "")"
+        if [ -n "$proxy_ip" ]; then
+            ./scripts/diagnose_502.sh "$proxy_ip" || log_err "diagnose_502.sh terminou com erro - veja a saida acima"
+        else
+            ./scripts/diagnose_502.sh || log_err "diagnose_502.sh terminou com erro - veja a saida acima"
+        fi
+    else
+        log_err "scripts/diagnose_502.sh nao encontrado ou sem permissao de execucao"
+    fi
+    pause
+}
+
 menu_stats() {
     local -a names=()
     mapfile -t names < <(docker compose ps --format '{{.Name}}' 2>/dev/null)
@@ -194,7 +209,8 @@ show_menu() {
     printf "   8) Configurar LDAP/AD\n"
     printf "   9) Uso de recursos (CPU/RAM)\n"
     printf "  10) Shell num contêiner\n"
-    printf "  11) Atualizar esta tela\n"
+    printf "  11) Diagnosticar erro 502 (proxy externo)\n"
+    printf "  12) Atualizar esta tela\n"
     printf "   0) Sair\n"
 }
 
@@ -203,7 +219,7 @@ while true; do
     print_header "PAINEL DE GERENCIAMENTO"
     print_services_panel
     show_menu
-    CHOICE="$(ask "Escolha uma opcao" "11")"
+    CHOICE="$(ask "Escolha uma opcao" "12")"
     case "$CHOICE" in
         1) menu_logs ;;
         2) menu_restart ;;
@@ -215,7 +231,8 @@ while true; do
         8) menu_ldap ;;
         9) menu_stats ;;
         10) menu_shell ;;
-        11) : ;;
+        11) menu_diagnose_502 ;;
+        12) : ;;
         0) printf "\n%sAte mais.%s\n\n" "${C_BGREEN}" "${C_RESET}"; exit 0 ;;
         *) log_err "Opcao invalida"; pause ;;
     esac

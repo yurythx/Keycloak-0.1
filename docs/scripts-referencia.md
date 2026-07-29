@@ -233,6 +233,54 @@ domínio público não carrega, o problema está no proxy da prefeitura
 domínio carrega mas os links do fluxo OIDC saem em `http://`, revise
 `PROXY_TRUSTED_ADDRESSES` e os headers `X-Forwarded-*` (seção acima).
 
+#### Erro 502 Bad Gateway (proxy externo → esta stack)
+
+Cenário comum quando as duas VMs (Keycloak e proxy/roteador da
+prefeitura) são servidores aaPanel separados: o Keycloak sobe saudável e
+fala com o Postgres normalmente, mas o domínio público retorna **502**.
+Como o `502` é gerado pelo Nginx do *outro* servidor (não por esta
+stack) quando ele não consegue obter uma resposta válida do backend, o
+diagnóstico precisa separar as duas pontas:
+
+1. Rode `./scripts/diagnose_502.sh` **nesta VM** (a do Keycloak) — ele
+   confere, nessa ordem: contêiner saudável, resposta local em
+   `http://127.0.0.1:<KEYCLOAK_PORT>/...`, se a porta está de fato em
+   `LISTEN` no endereço certo (`0.0.0.0`, não só `127.0.0.1`), regras de
+   `ufw` para `KEYCLOAK_PORT`, e o estado de `PROXY_TRUSTED_ADDRESSES`.
+   Também disponível no `./manage.sh` (opção "Diagnosticar erro 502").
+   Passe o IP do proxy como argumento (`./scripts/diagnose_502.sh
+   <IP-do-proxy>`) para conferir se há regra de firewall específica pra
+   ele.
+2. **Se o script confirmar que o Keycloak responde localmente**, o
+   problema não está nesta stack — os suspeitos, em ordem de frequência:
+   - **Firewall desta VM bloqueando o IP do proxy.** Atenção: no
+     aaPanel isso é **duas camadas independentes** — o firewall do SO
+     (`ufw`/`iptables`) **e** a aba própria de Segurança/Firewall do
+     painel aaPanel. Liberar só uma das duas não basta. Se a VM estiver
+     em nuvem, o Security Group/Grupo de Segurança do provedor é uma
+     terceira camada, checada antes das outras duas.
+   - **Vhost do proxy (no aaPanel do *outro* servidor) apontando errado**
+     — `proxy_pass` precisa ser `http://<IP-desta-VM>:<KEYCLOAK_PORT>`
+     (HTTP puro; usar `https://` aqui derruba a conexão porque o
+     Keycloak não fala TLS nessa porta) ou porta divergente do
+     `KEYCLOAK_PORT` real em `.env`.
+   - **Buffers de resposta pequenos no Nginx do proxy.** O Keycloak gera
+     headers/cookies maiores que o padrão do Nginx (sessão, múltiplos
+     realms/clients, SAML) — buffer padrão (4k/8k) causa `upstream sent
+     too big header while reading response header from upstream` no log
+     de erro do Nginx do proxy, que aparece pro usuário como 502. Ver
+     [`docs/exemplo-nginx-proxy-externo.conf`](exemplo-nginx-proxy-externo.conf)
+     para um vhost de referência já com `proxy_buffer_size`/
+     `proxy_buffers` ajustados e os headers `X-Forwarded-*` corretos.
+   - Confirme rodando **do servidor do proxy**: `curl -v
+     http://<IP-desta-VM>:<KEYCLOAK_PORT>/realms/master/.well-known/openid-configuration`
+     — timeout/connection refused aponta pro firewall; resposta 200 mas
+     502 no navegador aponta pro vhost/buffers do proxy.
+3. **Se o script apontar o contêiner como não saudável**, o problema
+   está aqui — resolva com `docker compose logs keycloak` /
+   `docs/01-provisionamento.md` antes de investigar o proxy: 502 é
+   esperado enquanto o backend não responde de verdade.
+
 ---
 
 ## Portainer
