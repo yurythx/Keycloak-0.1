@@ -31,6 +31,7 @@ portainer_enabled() {
 # desenha o painel "STACK NO AR" (status ao vivo, nao um valor fixo).
 print_services_panel() {
     local kc_hostname host_ip_v keycloak_ip postgres_ip portainer_bind portainer_ip keycloak_bind keycloak_port keycloak_addr
+    local vw_ip vw_db_ip vw_bind vw_http_port vw_ws_port vw_addr
 
     kc_hostname="$(grep -E '^KC_HOSTNAME=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
     host_ip_v="$(host_ip)"
@@ -42,9 +43,18 @@ print_services_panel() {
     keycloak_addr="${keycloak_bind:-0.0.0.0}"
     [ "$keycloak_addr" = "0.0.0.0" ] && keycloak_addr="$host_ip_v"
 
+    vw_ip="$(container_ip vaultwarden)"
+    vw_db_ip="$(container_ip vaultwarden_db)"
+    vw_bind="$(grep -E '^VAULTWARDEN_BIND=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
+    vw_http_port="$(grep -E '^VAULTWARDEN_HTTP_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
+    vw_ws_port="$(grep -E '^VAULTWARDEN_WS_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
+    vw_addr="${vw_bind:-192.168.0.225}"
+
     print_table_title "STACK NO AR"
     table_row "keycloak" "$(service_status keycloak_server)" "${kc_hostname:-https://<KC_HOSTNAME>}/admin [proxy -> ${keycloak_addr}:${keycloak_port:-18443}]" "${keycloak_ip:-?}:8080 (interno)"
     table_row "postgres" "$(service_status keycloak_db)"     "sem acesso externo"                          "${postgres_ip:-?}:5432 (interno)"
+    table_row "vaultwarden" "$(service_status vaultwarden)"  "[proxy -> ${vw_addr}:${vw_http_port:-8081} + ws:${vw_ws_port:-3012}]" "${vw_ip:-?}:80 (interno)"
+    table_row "vaultwarden-db" "$(service_status vaultwarden_db)" "sem acesso externo"                     "${vw_db_ip:-?}:5432 (interno)"
     if portainer_enabled; then
         portainer_bind="$(grep -E '^PORTAINER_BIND=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
         portainer_ip="$(container_ip portainer)"

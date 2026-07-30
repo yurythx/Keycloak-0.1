@@ -84,7 +84,7 @@ log_ok "Docker ativo"
 [ -f .env ] || die ".env nao encontrado - rode ./setup.sh primeiro"
 log_ok ".env presente"
 
-for f in secrets/postgres_password.txt secrets/kc_admin_password.txt; do
+for f in secrets/postgres_password.txt secrets/kc_admin_password.txt secrets/vw_postgres_password.txt; do
     [ -s "$f" ] || die "$f ausente/vazio - rode ./setup.sh primeiro"
 done
 log_ok "Segredos presentes (secrets/*.txt)"
@@ -96,6 +96,13 @@ KEYCLOAK_BIND_V="$(grep -E '^KEYCLOAK_BIND=' .env 2>/dev/null | cut -d= -f2- | t
 KEYCLOAK_PORT_V="$(grep -E '^KEYCLOAK_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
 KEYCLOAK_BIND_V="${KEYCLOAK_BIND_V:-0.0.0.0}"
 KEYCLOAK_PORT_V="${KEYCLOAK_PORT_V:-18443}"
+
+VAULTWARDEN_BIND_V="$(grep -E '^VAULTWARDEN_BIND=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
+VAULTWARDEN_HTTP_PORT_V="$(grep -E '^VAULTWARDEN_HTTP_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
+VAULTWARDEN_WS_PORT_V="$(grep -E '^VAULTWARDEN_WS_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
+VAULTWARDEN_BIND_V="${VAULTWARDEN_BIND_V:-192.168.0.225}"
+VAULTWARDEN_HTTP_PORT_V="${VAULTWARDEN_HTTP_PORT_V:-8081}"
+VAULTWARDEN_WS_PORT_V="${VAULTWARDEN_WS_PORT_V:-3012}"
 
 # Sem checagem de certificado aqui: TLS e' responsabilidade do proxy
 # reverso/balanceador da prefeitura, fora desta stack - o Keycloak so'
@@ -119,13 +126,13 @@ fi
 if [ "$DO_DOWN" = "1" ]; then
     step "Derrubando a stack"
     if [ "$PURGE" = "1" ]; then
-        confirm "${C_RED}Isso remove tambem o volume do Postgres (dados serao perdidos). Confirma?${C_RESET}" "N" \
+        confirm "${C_RED}Isso remove tambem os volumes (Postgres do Keycloak, Postgres e dados do Vaultwarden - tudo sera perdido). Confirma?${C_RESET}" "N" \
             || die "Operacao cancelada pelo usuario"
         docker compose down -v
-        log_warn "Stack derrubada e volume do Postgres removido"
+        log_warn "Stack derrubada e volumes removidos"
     else
         docker compose down
-        log_ok "Stack derrubada (volume do Postgres preservado)"
+        log_ok "Stack derrubada (volumes preservados)"
     fi
     exit 0
 fi
@@ -159,6 +166,8 @@ check_port() {
 }
 
 check_port "$KEYCLOAK_PORT_V" "Keycloak" keycloak_server
+check_port "$VAULTWARDEN_HTTP_PORT_V" "Vaultwarden HTTP" vaultwarden
+check_port "$VAULTWARDEN_WS_PORT_V" "Vaultwarden WebSocket" vaultwarden
 if [ "$PORTAINER_ON" = "1" ]; then
     check_port 9443 "Portainer" portainer
 fi
@@ -169,7 +178,7 @@ if [ "$DO_BUILD" = "1" ]; then
     log_warn "Modo --build: buildando a imagem do Keycloak LOCALMENTE (nao usa o registry)"
     log_warn "Use isso so' em dev/homologacao - em producao prefira o modo padrao (pull do ghcr.io)"
 elif [ "$DO_PULL" = "1" ]; then
-    step "Baixando imagens do registry (Postgres e Keycloak via ghcr.io)"
+    step "Baixando imagens do registry (Postgres, Keycloak e Vaultwarden)"
     if ! docker compose pull; then
         log_err "Falha ao puxar as imagens."
         log_err "Se a imagem do Keycloak for privada no GitHub Container Registry, rode:"
@@ -212,7 +221,7 @@ wait_healthy() {
 }
 
 FAILED=0
-for c in keycloak_db keycloak_server; do
+for c in keycloak_db keycloak_server vaultwarden_db vaultwarden; do
     wait_healthy "$c" || FAILED=1
 done
 if [ "$PORTAINER_ON" = "1" ]; then
@@ -246,7 +255,27 @@ done
 if [ "$ROUTE_OK" = "0" ]; then
     log_warn "Keycloak ainda nao respondeu em ${CHECK_HOST}:${KEYCLOAK_PORT_V} apos 10 tentativas (~30s) - o contêiner esta healthy, mas confira 'docker compose logs keycloak'"
 fi
+
+# -----------------------------------------------------------------------------
+step "Validando Vaultwarden local (HTTP direto, antes do proxy da prefeitura)"
+# -----------------------------------------------------------------------------
+VW_CHECK_HOST="$VAULTWARDEN_BIND_V"
+[ "$VW_CHECK_HOST" = "0.0.0.0" ] && VW_CHECK_HOST="127.0.0.1"
+VW_ROUTE_OK=0
+for attempt in $(seq 1 10); do
+    code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "http://${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V}/alive" 2>/dev/null || echo 000)"
+    if [ "$code" = "200" ]; then
+        VW_ROUTE_OK=1
+        log_ok "Vaultwarden respondendo em http://${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V} (HTTP ${code}, tentativa ${attempt}/10)"
+        break
+    fi
+    sleep 3
+done
+if [ "$VW_ROUTE_OK" = "0" ]; then
+    log_warn "Vaultwarden ainda nao respondeu em ${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V} apos 10 tentativas (~30s) - o contêiner esta healthy, mas confira 'docker compose logs vaultwarden'"
+fi
 log_info "Lembrete: aponte o proxy reverso da prefeitura para ${KEYCLOAK_BIND_V}:${KEYCLOAK_PORT_V} (HTTP) e confirme que ele envia X-Forwarded-Proto/Host corretos"
+log_info "Lembrete: aponte o proxy reverso da prefeitura para ${VAULTWARDEN_BIND_V}:${VAULTWARDEN_HTTP_PORT_V} (HTTP, /alive) e ${VAULTWARDEN_BIND_V}:${VAULTWARDEN_WS_PORT_V} (WebSocket)"
 
 # -----------------------------------------------------------------------------
 step "Configuracao LDAP/AD (opcional)"

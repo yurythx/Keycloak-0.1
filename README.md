@@ -18,11 +18,12 @@
 Stack de **Single Sign-On (SSO)** da prefeitura, construída sobre o
 [Keycloak](https://www.keycloak.org/), federada ao **Active Directory**
 via LDAPS e integrada à Intranet (Django), ao GLPI e ao Zabbix. Roda
-inteiramente em **Docker Compose** — Postgres + Keycloak, com Portainer
-opcional — provisionada e operada por scripts próprios com tema visual
-"Matrix" no terminal. TLS, redirecionamento HTTP→HTTPS e balanceamento
-de carga ficam a cargo do servidor web/proxy reverso já existente na
-prefeitura, fora desta stack.
+inteiramente em **Docker Compose** — Postgres + Keycloak, **Vaultwarden**
+(cofre de senhas, com seu próprio Postgres) e Portainer opcional —
+provisionada e operada por scripts próprios com tema visual "Matrix" no
+terminal. TLS, redirecionamento HTTP→HTTPS e balanceamento de carga
+ficam a cargo do servidor web/proxy reverso já existente na prefeitura,
+fora desta stack.
 
 ```bash
 git clone https://github.com/yurythx/Keycloak0.1.git /opt/keycloak-stack

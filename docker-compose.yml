@@ -6,11 +6,22 @@ networks:
     name: keycloak_backend
     driver: bridge
     internal: true # Isola o banco de dados completamente, sem rota de saida para a internet
+  vw_frontend:
+    name: vaultwarden_frontend
+    driver: bridge
+  vw_backend:
+    name: vaultwarden_backend
+    driver: bridge
+    internal: true # Isola o banco do Vaultwarden - so o app (vw_frontend+vw_backend) fala com ele
 
 volumes:
   postgres_data:
     driver: local
   portainer_data:
+    driver: local
+  vw_db_data:
+    driver: local
+  vw_app_data:
     driver: local
 
 secrets:
@@ -18,6 +29,8 @@ secrets:
     file: ./secrets/postgres_password.txt
   kc_admin_password:
     file: ./secrets/kc_admin_password.txt
+  vw_postgres_password:
+    file: ./secrets/vw_postgres_password.txt
 
 x-logging: &default-logging
   driver: json-file
@@ -153,6 +166,95 @@ services:
     mem_limit: 4g
     cpus: 2.0
     logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Vaultwarden (cofre de senhas - servidor compativel com clientes Bitwarden)
+  # ---------------------------------------------------------------------------
+  # Stack separada da SSO do Keycloak (banco, rede e secret proprios) - so
+  # compartilha o padrao de operacao deste repositorio (secrets fora do
+  # .env, isolamento de rede, healthcheck, deploy.sh). Publica direto num
+  # IP:porta do host (VAULTWARDEN_BIND) pro mesmo proxy reverso externo da
+  # prefeitura (192.168.0.218) encaminhar - igual o Keycloak, restrinja
+  # essa porta por firewall so' ao IP daquele proxy.
+  vaultwarden-db:
+    image: postgres:${VW_POSTGRES_VERSION:-16-alpine}
+    container_name: vaultwarden_db
+    restart: unless-stopped
+    networks:
+      - vw_backend
+    environment:
+      POSTGRES_DB: ${VW_POSTGRES_DB:-vaultwarden}
+      POSTGRES_USER: ${VW_POSTGRES_USER:-vw_user}
+      # Imagem oficial do Postgres suporta _FILE nativamente (mesmo padrao
+      # do "postgres" do Keycloak acima)
+      POSTGRES_PASSWORD_FILE: /run/secrets/vw_postgres_password
+    secrets:
+      - vw_postgres_password
+    volumes:
+      - vw_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${VW_POSTGRES_USER:-vw_user} -d $${VW_POSTGRES_DB:-vaultwarden}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    mem_limit: 512m
+    cpus: 1.0
+    # Sem "ports:" - so alcancavel dentro da rede "vw_backend" (internal: true)
+
+  vaultwarden:
+    image: vaultwarden/server:${VAULTWARDEN_VERSION:-latest}
+    container_name: vaultwarden
+    restart: unless-stopped
+    depends_on:
+      vaultwarden-db:
+        condition: service_healthy
+    networks:
+      - vw_frontend
+      - vw_backend
+    environment:
+      # DATABASE_URL completa (com senha) e' montada em runtime pelo script
+      # abaixo, a partir do secret - essas duas so' alimentam esse script,
+      # nao expoe a senha em texto plano no .env (ver volumes: abaixo)
+      VW_POSTGRES_USER: ${VW_POSTGRES_USER:-vw_user}
+      VW_POSTGRES_DB: ${VW_POSTGRES_DB:-vaultwarden}
+      WEBSOCKET_ENABLED: "true"
+      WEBSOCKET_ADDRESS: 0.0.0.0
+      WEBSOCKET_PORT: 3012
+      # So' confia no X-Forwarded-For se a porta publicada abaixo estiver
+      # mesmo restrita por firewall ao IP do proxy da prefeitura - o
+      # Vaultwarden, diferente do Keycloak (PROXY_TRUSTED_ADDRESSES), nao
+      # valida de qual IP o header veio, so' confia cegamente se
+      # IP_HEADER estiver setado.
+      IP_HEADER: X-Forwarded-For
+    secrets:
+      - vw_postgres_password
+    volumes:
+      - vw_app_data:/data
+      # O entrypoint padrao da imagem (/start.sh) executa qualquer *.sh
+      # dentro de /etc/vaultwarden.d/ antes de rodar o binario - usamos
+      # isso pra montar o DATABASE_URL com a senha lida do secret em
+      # runtime, sem nunca escrever a senha em texto plano no .env (mesmo
+      # cuidado do KC_DB_PASSWORD_FILE do Keycloak, adaptado pro
+      # Vaultwarden nao ter um "_FILE" nativo pra DATABASE_URL).
+      - ./scripts/vaultwarden-database-url.sh:/etc/vaultwarden.d/00-database-url.sh:ro
+    ports:
+      - "${VAULTWARDEN_BIND:-192.168.0.225}:${VAULTWARDEN_HTTP_PORT:-8081}:80"
+      - "${VAULTWARDEN_BIND:-192.168.0.225}:${VAULTWARDEN_WS_PORT:-3012}:3012"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/alive"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    mem_limit: 512m
+    cpus: 1.5
 
   # ---------------------------------------------------------------------------
   # Portainer (opcional - gerenciador visual do Docker)

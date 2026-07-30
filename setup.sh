@@ -73,6 +73,14 @@ if [ -f .env ]; then
     if grep -qE '^PROXY_TRUSTED_ADDRESSES=(172\.16\.0\.0/12)?$' .env 2>/dev/null; then
         log_warn "PROXY_TRUSTED_ADDRESSES esta vazio ou no valor antigo (faixa Docker) - troque pelo IP real do proxy reverso da prefeitura em .env antes do deploy"
     fi
+    # Auto-migracao: .env de antes do Vaultwarden entrar na stack nao tem
+    # essas variaveis - adiciona com os padroes pra "docker compose config"
+    # nao quebrar (VW_POSTGRES_USER/DB tem default no compose, mas o
+    # secret precisa existir - ver make_secret_file abaixo).
+    if ! grep -qE '^VW_POSTGRES_DB=' .env 2>/dev/null; then
+        printf '\nVW_POSTGRES_DB=vaultwarden\nVW_POSTGRES_USER=vw_user\nVAULTWARDEN_VERSION=latest\nVAULTWARDEN_BIND=192.168.0.225\nVAULTWARDEN_HTTP_PORT=8081\nVAULTWARDEN_WS_PORT=3012\n' >> .env
+        log_warn ".env sem variaveis do Vaultwarden - adicionadas com os padroes (confira VAULTWARDEN_BIND=192.168.0.225 - precisa ser um IP que esta VM realmente tenha)"
+    fi
 else
     [ -f .env.example ] || die ".env.example nao encontrado no repositorio"
     cp .env.example .env
@@ -100,6 +108,12 @@ else
     if confirm "Subir o Portainer junto (gerenciador visual do Docker, so' acessivel via 127.0.0.1:9443/SSH tunnel por padrao)?" "N"; then
         ENABLE_PORTAINER_V="true"
     fi
+
+    VW_POSTGRES_DB_V=$(ask "Nome do banco do Vaultwarden" "vaultwarden")
+    VW_POSTGRES_USER_V=$(ask "Usuario do Postgres do Vaultwarden" "vw_user")
+    VAULTWARDEN_BIND_V=$(ask "IP do host onde o Vaultwarden fica exposto pro proxy da prefeitura encaminhar" "192.168.0.225")
+    VAULTWARDEN_HTTP_PORT_V=$(ask "Porta HTTP do Vaultwarden nesse IP" "8081")
+    VAULTWARDEN_WS_PORT_V=$(ask "Porta do WebSocket do Vaultwarden (sincronizacao em tempo real)" "3012")
 
     cat > .env <<EOF
 # Gerado por setup.sh em $(date '+%F %T')
@@ -129,6 +143,15 @@ KEYCLOAK_IMAGE_TAG=latest
 # SSH tunnel/VPN - mude com cuidado (ver docs/scripts-referencia.md).
 ENABLE_PORTAINER=${ENABLE_PORTAINER_V}
 PORTAINER_BIND=127.0.0.1
+
+# Vaultwarden (cofre de senhas) - stack separada da SSO do Keycloak,
+# mesmo proxy reverso externo da prefeitura encaminha pra ca.
+VW_POSTGRES_DB=${VW_POSTGRES_DB_V}
+VW_POSTGRES_USER=${VW_POSTGRES_USER_V}
+VAULTWARDEN_VERSION=latest
+VAULTWARDEN_BIND=${VAULTWARDEN_BIND_V}
+VAULTWARDEN_HTTP_PORT=${VAULTWARDEN_HTTP_PORT_V}
+VAULTWARDEN_WS_PORT=${VAULTWARDEN_WS_PORT_V}
 EOF
     log_ok ".env preenchido"
 fi
@@ -176,6 +199,7 @@ make_secret_file() {
 
 make_secret_file "secrets/postgres_password.txt" "Senha do Postgres"
 make_secret_file "secrets/kc_admin_password.txt" "Senha do admin do Keycloak"
+make_secret_file "secrets/vw_postgres_password.txt" "Senha do Postgres do Vaultwarden"
 
 # -----------------------------------------------------------------------------
 step "Proxy reverso externo"
