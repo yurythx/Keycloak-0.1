@@ -1,21 +1,21 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:000000,50:0D1F0D,100:00FF41&height=220&section=header&text=%F0%9F%94%90%20Keycloak%20SSO%20%2B%20Vault&fontSize=42&fontColor=00FF41&animation=fadeIn&fontAlignY=35&desc=Autentica%C3%A7%C3%A3o%20%C3%9Anica%20%26%20Cofre%20de%20Segredos%20da%20Prefeitura&descSize=17&descAlignY=55&descColor=00FF41" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:000000,50:1F0D0D,100:FF4500&height=220&section=header&text=%F0%9F%94%90%20Keycloak%20SSO%20%2B%20Vault&fontSize=42&fontColor=FF4500&animation=fadeIn&fontAlignY=35&desc=Autentica%C3%A7%C3%A3o%20%C3%9Anica%20%26%20Cofre%20de%20Segredos%20da%20Prefeitura&descSize=17&descAlignY=55&descColor=FF4500" width="100%"/>
 
 <a href="https://github.com/yurythx/Keycloak0.1/actions/workflows/ci.yml">
   <img src="https://github.com/yurythx/Keycloak0.1/actions/workflows/ci.yml/badge.svg" alt="CI"/>
 </a>
-<img src="https://img.shields.io/badge/Keycloak-26.7.0-00FF41?style=for-the-badge&logo=keycloak&logoColor=black&labelColor=000000" alt="Keycloak"/>
-<img src="https://img.shields.io/badge/Vaultwarden-Cofre%20de%20Senhas-00FF41?style=for-the-badge&logo=bitwarden&logoColor=black&labelColor=000000" alt="Vaultwarden"/>
-<img src="https://img.shields.io/badge/PostgreSQL-16-00FF41?style=for-the-badge&logo=postgresql&logoColor=black&labelColor=000000" alt="PostgreSQL"/>
-<img src="https://img.shields.io/badge/Docker-Compose-00FF41?style=for-the-badge&logo=docker&logoColor=black&labelColor=000000" alt="Docker"/>
+<img src="https://img.shields.io/badge/Keycloak-26.7.0-FF4500?style=for-the-badge&logo=keycloak&logoColor=black&labelColor=000000" alt="Keycloak"/>
+<img src="https://img.shields.io/badge/Vaultwarden-Cofre%20de%20Senhas-FF4500?style=for-the-badge&logo=bitwarden&logoColor=black&labelColor=000000" alt="Vaultwarden"/>
+<img src="https://img.shields.io/badge/PostgreSQL-16-FF4500?style=for-the-badge&logo=postgresql&logoColor=black&labelColor=000000" alt="PostgreSQL"/>
+<img src="https://img.shields.io/badge/Docker-Compose-FF4500?style=for-the-badge&logo=docker&logoColor=black&labelColor=000000" alt="Docker"/>
 <br/>
-<img src="https://img.shields.io/badge/🔒_Secrets-Docker%20Secrets%2C%20nunca%20no%20git-00FF41?style=flat-square&labelColor=000000" alt="Secrets"/>
-<img src="https://img.shields.io/badge/🛡️_Rede-Isolada%20%2F%20internal%3A%20true-00FF41?style=flat-square&labelColor=000000" alt="Rede isolada"/>
-<img src="https://img.shields.io/badge/🚫_Autorregistro-Fechado%20por%20padrão-00FF41?style=flat-square&labelColor=000000" alt="Autorregistro fechado"/>
-<img src="https://img.shields.io/badge/🔑_SSO-OpenID%20Connect-00FF41?style=flat-square&labelColor=000000" alt="SSO"/>
+<img src="https://img.shields.io/badge/Secrets-Docker%20Secrets%2C%20nunca%20no%20git-FF4500?style=flat-square&labelColor=000000&logo=lock&logoColor=FF4500" alt="Secrets"/>
+<img src="https://img.shields.io/badge/Rede-Isolada%20%2F%20internal%20true-FF4500?style=flat-square&labelColor=000000&logo=cloudflare&logoColor=FF4500" alt="Rede isolada"/>
+<img src="https://img.shields.io/badge/Autorregistro-Fechado%20por%20padr%C3%A3o-FF4500?style=flat-square&labelColor=000000&logo=googlesecuritycenter&logoColor=FF4500" alt="Autorregistro fechado"/>
+<img src="https://img.shields.io/badge/SSO-OpenID%20Connect-FF4500?style=flat-square&labelColor=000000&logo=openid&logoColor=FF4500" alt="SSO"/>
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&duration=3000&pause=900&color=00FF41&center=true&vCenter=true&width=650&lines=SSO+institucional+%3E+Active+Directory+(LDAPS);Cofre+de+senhas+%3E+Vaultwarden+%3E+login+via+SSO;Federa%C3%A7%C3%A3o+%C3%BAnica+%3E+Django+%C2%B7+GLPI+%C2%B7+Zabbix;Build+fora+da+VM+%3E+CI%2FCD+%3E+Registry+%3E+Deploy;Zero+senha+em+texto+plano+%3E+secrets+versionados+fora+do+git;Zero+autorregistro+publico+%3E+contas+so+via+admin" alt="Typing SVG"/>
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&duration=3000&pause=900&color=FF4500&center=true&vCenter=true&width=650&lines=SSO+institucional+%3E+Active+Directory+(LDAPS);Cofre+de+senhas+%3E+Vaultwarden+%3E+login+via+SSO;Federa%C3%A7%C3%A3o+%C3%BAnica+%3E+Django+%C2%B7+GLPI+%C2%B7+Zabbix;Build+fora+da+VM+%3E+CI%2FCD+%3E+Registry+%3E+Deploy;Zero+senha+em+texto+plano+%3E+secrets+versionados+fora+do+git;Zero+autorregistro+publico+%3E+contas+so+via+admin" alt="Typing SVG"/>
 
 </div>
 
@@ -119,7 +119,7 @@ portões de validação (Go/No-Go) entre cada uma.
 | — | [Referência de Scripts](docs/scripts-referencia.md) · [Tema Visual](docs/tema-visual.md) · [CI/CD e Registry](docs/ci-cd.md) · [Verificação Final](docs/verificacao-final.md) |
 
 <div align="center">
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:00FF41,50:0D1F0D,100:000000&height=100&section=footer" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:FF4500,50:1F0D0D,100:000000&height=100&section=footer" width="100%"/>
 
 🔐 *"Zero senha em texto plano. Zero autorregistro público. Zero surpresa."*
 
