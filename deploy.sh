@@ -91,8 +91,19 @@ done
 # (SSO desligado por padrao) - so' precisa existir, pro "secrets:" do
 # compose nao falhar por arquivo ausente.
 [ -f secrets/vw_sso_client_secret.txt ] || die "secrets/vw_sso_client_secret.txt ausente - rode ./setup.sh primeiro"
+VW_SSO_PENDING=0
 if grep -qE '^VAULTWARDEN_SSO_ENABLED=true' .env 2>/dev/null && [ ! -s secrets/vw_sso_client_secret.txt ]; then
-    die "VAULTWARDEN_SSO_ENABLED=true no .env mas secrets/vw_sso_client_secret.txt esta vazio - cole o client secret do Keycloak nele (ver docs/06-vaultwarden.md#sso)"
+    # NAO da "die" aqui de proposito - achado real: isso travaria o
+    # PRIMEIRO deploy inteiro (Keycloak incluido) num impasse circular,
+    # porque criar o client do Vaultwarden no Keycloak (manage.sh opcao
+    # 10 / scripts/configure_vaultwarden_sso.sh) exige o Keycloak ja
+    # estar rodando. Deixa a stack subir - so o Vaultwarden fica em
+    # crash-loop ate o secret ser preenchido, o resto (Keycloak,
+    # Postgres) sobe normal e desbloqueia o proximo passo.
+    log_warn "VAULTWARDEN_SSO_ENABLED=true no .env mas secrets/vw_sso_client_secret.txt esta vazio"
+    log_warn "Vaultwarden vai ficar em crash-loop ate isso ser preenchido - o resto da stack sobe normal"
+    log_warn "Depois que o Keycloak estiver de pe: ./manage.sh -> opcao 10 (cria o client e preenche sozinho)"
+    VW_SSO_PENDING=1
 fi
 log_ok "Segredos presentes (secrets/*.txt)"
 
@@ -235,14 +246,22 @@ wait_healthy() {
 }
 
 FAILED=0
+CRITICAL_FAILED=0
 for c in keycloak_db keycloak_server vaultwarden_db vaultwarden; do
-    wait_healthy "$c" || FAILED=1
+    if ! wait_healthy "$c"; then
+        FAILED=1
+        if [ "$c" = "vaultwarden" ] && [ "$VW_SSO_PENDING" = "1" ]; then
+            log_warn "vaultwarden nao ficou healthy - esperado (SSO pendente, ver aviso no preflight acima). Nao trava o resto do deploy."
+        else
+            CRITICAL_FAILED=1
+        fi
+    fi
 done
 if [ "$PORTAINER_ON" = "1" ]; then
-    wait_healthy "portainer" || FAILED=1
+    wait_healthy "portainer" || CRITICAL_FAILED=1
 fi
 
-if [ "$FAILED" = "1" ]; then
+if [ "$CRITICAL_FAILED" = "1" ]; then
     step "Falha no deploy - ultimas linhas de log dos serviços"
     docker compose logs --tail=50
     die "Deploy falhou. Verifique os logs acima e docs/01-provisionamento.md."
@@ -276,17 +295,21 @@ step "Validando Vaultwarden local (HTTP direto, antes do proxy da prefeitura)"
 VW_CHECK_HOST="$VAULTWARDEN_BIND_V"
 [ "$VW_CHECK_HOST" = "0.0.0.0" ] && VW_CHECK_HOST="127.0.0.1"
 VW_ROUTE_OK=0
-for attempt in $(seq 1 10); do
-    code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "http://${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V}/alive" 2>/dev/null || echo 000)"
-    if [ "$code" = "200" ]; then
-        VW_ROUTE_OK=1
-        log_ok "Vaultwarden respondendo em http://${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V} (HTTP ${code}, tentativa ${attempt}/10)"
-        break
+if [ "$VW_SSO_PENDING" = "1" ]; then
+    log_warn "Pulando checagem (SSO pendente - crash-loop esperado). Depois de rodar './manage.sh' -> opcao 10, rode './deploy.sh' de novo ou 'docker compose up -d --force-recreate vaultwarden'"
+else
+    for attempt in $(seq 1 10); do
+        code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "http://${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V}/alive" 2>/dev/null || echo 000)"
+        if [ "$code" = "200" ]; then
+            VW_ROUTE_OK=1
+            log_ok "Vaultwarden respondendo em http://${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V} (HTTP ${code}, tentativa ${attempt}/10)"
+            break
+        fi
+        sleep 3
+    done
+    if [ "$VW_ROUTE_OK" = "0" ]; then
+        log_warn "Vaultwarden ainda nao respondeu em ${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V} apos 10 tentativas (~30s) - o contêiner esta healthy, mas confira 'docker compose logs vaultwarden'"
     fi
-    sleep 3
-done
-if [ "$VW_ROUTE_OK" = "0" ]; then
-    log_warn "Vaultwarden ainda nao respondeu em ${VW_CHECK_HOST}:${VAULTWARDEN_HTTP_PORT_V} apos 10 tentativas (~30s) - o contêiner esta healthy, mas confira 'docker compose logs vaultwarden'"
 fi
 log_info "Lembrete: aponte o proxy reverso da prefeitura para ${KEYCLOAK_BIND_V}:${KEYCLOAK_PORT_V} (HTTP) e confirme que ele envia X-Forwarded-Proto/Host corretos"
 log_info "Lembrete: aponte o proxy reverso da prefeitura para ${VAULTWARDEN_BIND_V}:${VAULTWARDEN_HTTP_PORT_V} (HTTP, /alive) e ${VAULTWARDEN_BIND_V}:${VAULTWARDEN_WS_PORT_V} (WebSocket)"
