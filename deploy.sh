@@ -315,6 +315,17 @@ log_info "Lembrete: aponte o proxy reverso da prefeitura para ${KEYCLOAK_BIND_V}
 log_info "Lembrete: aponte o proxy reverso da prefeitura para ${VAULTWARDEN_BIND_V}:${VAULTWARDEN_HTTP_PORT_V} (HTTP, /alive) e ${VAULTWARDEN_BIND_V}:${VAULTWARDEN_WS_PORT_V} (WebSocket)"
 
 # -----------------------------------------------------------------------------
+step "Conta inicial do Vaultwarden"
+# -----------------------------------------------------------------------------
+# Idempotente - so cria se ainda nao existir, nunca mexe numa conta que
+# ja existe (nem reseta senha). Seguro rodar em todo deploy.
+if [ -x scripts/vaultwarden_bootstrap_account.sh ]; then
+    ./scripts/vaultwarden_bootstrap_account.sh || log_warn "vaultwarden_bootstrap_account.sh terminou com erro - stack continua no ar, veja a saida acima"
+else
+    log_warn "scripts/vaultwarden_bootstrap_account.sh nao encontrado - pulando"
+fi
+
+# -----------------------------------------------------------------------------
 step "Configuracao LDAP/AD (opcional)"
 if [ "$DO_LDAP" = "1" ]; then
     if [ -x scripts/configure_ldap.sh ]; then

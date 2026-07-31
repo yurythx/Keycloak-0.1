@@ -20,6 +20,7 @@ entrega tudo executável.
 | [`scripts/session_stats.sh`](#scriptssession_statssh) | Sessões ativas (API Admin) | Monitoramento, sob demanda ou via Zabbix |
 | [`scripts/diagnose_502.sh`](#scriptsdiagnose_502sh) | Diagnóstico de 502 no proxy externo | Troubleshooting, sob demanda |
 | [`scripts/vaultwarden_create_user.py`](#scriptsvaultwarden_create_userpy) | Cria conta no Vaultwarden com senha pré-definida | Etapa 6, provisionamento inicial |
+| [`scripts/vaultwarden_bootstrap_account.sh`](#scriptsvaultwarden_bootstrap_accountsh) | Garante a conta inicial do Vaultwarden (idempotente) | Etapa 6, chamado automaticamente pelo `deploy.sh` |
 | [`scripts/configure_vaultwarden_sso.sh`](#scriptsconfigure_vaultwarden_ssosh) | Assistente de integração SSO Vaultwarden ↔ Keycloak | Etapa 6, uma vez (ou ao girar o secret) |
 | [`scripts/check_vaultwarden_sso.sh`](#scriptscheck_vaultwarden_ssosh) | Verifica se a integração SSO está funcionando de verdade | Etapa 6, sob demanda |
 | [`scripts/check_ad_status.sh`](#scriptscheck_ad_statussh) | Verifica a federação com o AD com um teste de conexão real | Etapa 3, sob demanda |
@@ -463,9 +464,11 @@ replicando em Python a criptografia client-side do Bitwarden (PBKDF2
 pra derivar a chave mestra, HKDF pra "esticar" ela, AES-256-CBC +
 HMAC-SHA256 pra proteger a chave simétrica do usuário e o par de chaves
 RSA — o servidor nunca vê a senha em texto claro nem os dados
-descriptografados). Usado pra provisionar a conta `suporte` inicial do
-Vaultwarden sem depender do fluxo de convite por link (ver
-[Etapa 6](06-vaultwarden.md#4-autorregistro-desligado--criar-a-primeira-conta-pelo-admin)).
+descriptografados). Normalmente **não é chamado diretamente** — é o
+motor por trás de `scripts/vaultwarden_bootstrap_account.sh` (abaixo),
+que cuida de ligar/desligar `SIGNUPS_ALLOWED` em volta dele. Use direto
+só pra criar uma conta extra com senha pré-definida fora do fluxo
+automático.
 
 Só funciona com `SIGNUPS_ALLOWED=true` no `docker-compose.yml` no
 momento da execução — o próprio Vaultwarden recusa registrar se
@@ -477,7 +480,7 @@ sed -i 's/SIGNUPS_ALLOWED: "false"/SIGNUPS_ALLOWED: "true"/' docker-compose.yml
 docker compose up -d --force-recreate vaultwarden
 
 python3 scripts/vaultwarden_create_user.py https://cofre.rondonopolis.mt.gov.br \
-    suporte@rondonopolis.mt.gov.br "SenhaForte123!" "Suporte TI"
+    alguem@rondonopolis.mt.gov.br "SenhaForte123!" "Nome Completo"
 
 sed -i 's/SIGNUPS_ALLOWED: "true"/SIGNUPS_ALLOWED: "false"/' docker-compose.yml
 docker compose up -d --force-recreate vaultwarden
@@ -488,6 +491,35 @@ na sequência, login real conferido (token de acesso emitido) com a
 senha informada — inclusive depois de `SIGNUPS_ALLOWED` voltar pra
 `false` (a restrição só afeta registro de conta nova, não login de
 conta existente).
+
+---
+
+## `scripts/vaultwarden_bootstrap_account.sh`
+
+Garante que a conta inicial do Vaultwarden existe, criando-a se ainda
+não existir. **Chamado automaticamente pelo `deploy.sh`** como última
+etapa de todo deploy — não precisa rodar manualmente, mas pode ser
+chamado isolado:
+
+```bash
+./scripts/vaultwarden_bootstrap_account.sh
+```
+
+Lê `VAULTWARDEN_INITIAL_USER_EMAIL`/`VAULTWARDEN_INITIAL_USER_NAME` do
+`.env` e a senha de `secrets/vw_initial_user_password.txt` (ambos
+preenchidos pelo `setup.sh`). **Idempotente**: consulta o Postgres do
+Vaultwarden direto (`SELECT 1 FROM users WHERE email=...`) antes de
+fazer qualquer coisa — se a conta já existe, não faz nada (nunca
+sobrescreve senha de conta existente). Se `VAULTWARDEN_INITIAL_USER_EMAIL`
+estiver vazio, a etapa é pulada sem erro.
+
+Quando precisa criar a conta, liga `SIGNUPS_ALLOWED=true` só pela
+janela necessária via um arquivo de override temporário
+(`docker compose -f docker-compose.yml -f .vw_signup_override.yml up -d`
+— nunca edita o `docker-compose.yml` rastreado pelo git), chama
+`scripts/vaultwarden_create_user.py` (acima) e reverte pro padrão com
+um `trap` que garante a reversão mesmo se a criação falhar no meio do
+caminho.
 
 ---
 

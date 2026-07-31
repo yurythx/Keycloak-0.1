@@ -88,6 +88,10 @@ if [ -f .env ]; then
     if grep -qE '^VAULTWARDEN_DOMAIN=$' .env 2>/dev/null; then
         log_warn "VAULTWARDEN_DOMAIN esta vazio no .env - o Vaultwarden RECUSA subir sem isso (precisa ser http[s]://... , achado real testando esta stack). Preencha antes do deploy"
     fi
+    if ! grep -qE '^VAULTWARDEN_INITIAL_USER_EMAIL=' .env 2>/dev/null; then
+        printf '\nVAULTWARDEN_INITIAL_USER_EMAIL=\nVAULTWARDEN_INITIAL_USER_NAME="Suporte TI"\n' >> .env
+        log_warn ".env sem VAULTWARDEN_INITIAL_USER_EMAIL - adicionado vazio (deploy.sh nao cria conta inicial nenhuma ate voce preencher e rodar ./setup.sh de novo pra gerar secrets/vw_initial_user_password.txt)"
+    fi
 else
     [ -f .env.example ] || die ".env.example nao encontrado no repositorio"
     cp .env.example .env
@@ -141,6 +145,12 @@ else
         log_warn "Cole o CLIENT SECRET desse client em secrets/vw_sso_client_secret.txt antes do deploy (nao e' gerado por este script - precisa bater com o valor do Keycloak, e o client precisa existir de verdade)"
     fi
 
+    VAULTWARDEN_INITIAL_USER_EMAIL_V=$(ask "E-mail da conta inicial do Vaultwarden (Enter pra nao criar nenhuma automaticamente)" "")
+    VAULTWARDEN_INITIAL_USER_NAME_V="Suporte TI"
+    if [ -n "$VAULTWARDEN_INITIAL_USER_EMAIL_V" ]; then
+        VAULTWARDEN_INITIAL_USER_NAME_V=$(ask "Nome dessa conta" "Suporte TI")
+    fi
+
     cat > .env <<EOF
 # Gerado por setup.sh em $(date '+%F %T')
 POSTGRES_DB=${POSTGRES_DB_V}
@@ -185,6 +195,11 @@ VAULTWARDEN_DOMAIN=${VAULTWARDEN_DOMAIN_V}
 VAULTWARDEN_SSO_ENABLED=${VAULTWARDEN_SSO_ENABLED_V}
 VAULTWARDEN_SSO_AUTHORITY=${VAULTWARDEN_SSO_AUTHORITY_V}
 VAULTWARDEN_SSO_CLIENT_ID=${VAULTWARDEN_SSO_CLIENT_ID_V}
+
+# Conta inicial do Vaultwarden - deploy.sh garante que existe em todo
+# deploy (idempotente). Senha fica em secrets/vw_initial_user_password.txt
+VAULTWARDEN_INITIAL_USER_EMAIL=${VAULTWARDEN_INITIAL_USER_EMAIL_V}
+VAULTWARDEN_INITIAL_USER_NAME="${VAULTWARDEN_INITIAL_USER_NAME_V}"
 EOF
     log_ok ".env preenchido"
 fi
@@ -248,6 +263,28 @@ if [ ! -f secrets/vw_sso_client_secret.txt ]; then
     log_info "secrets/vw_sso_client_secret.txt criado vazio - preencha com o client secret do Keycloak se for usar SSO (ver docs/06-vaultwarden.md#sso)"
 else
     fix_secret_perms "secrets/vw_sso_client_secret.txt"
+fi
+
+# Senha da conta inicial do Vaultwarden (scripts/vaultwarden_bootstrap_account.sh,
+# chamado pelo deploy.sh, cria essa conta automaticamente se ainda nao
+# existir). So' pergunta se VAULTWARDEN_INITIAL_USER_EMAIL estiver preenchido
+# no .env e o arquivo ainda nao existir - nunca sobrescreve uma senha ja
+# gravada (a conta pode ja existir de verdade, mudar o arquivo nao muda a
+# senha dela).
+VW_INITIAL_EMAIL_SHOW="$(grep -E '^VAULTWARDEN_INITIAL_USER_EMAIL=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
+if [ -n "$VW_INITIAL_EMAIL_SHOW" ]; then
+    if [ -s secrets/vw_initial_user_password.txt ]; then
+        log_info "Senha da conta inicial do Vaultwarden ja existe em secrets/vw_initial_user_password.txt - mantendo"
+    else
+        VW_INITIAL_PW_V="$(ask_secret "Senha da conta inicial do Vaultwarden (${VW_INITIAL_EMAIL_SHOW})")"
+        if [ -z "$VW_INITIAL_PW_V" ]; then
+            log_warn "Nenhuma senha informada - secrets/vw_initial_user_password.txt nao foi criado. deploy.sh vai pular a criacao dessa conta ate voce preencher esse arquivo"
+        else
+            printf '%s' "$VW_INITIAL_PW_V" > secrets/vw_initial_user_password.txt
+            fix_secret_perms "secrets/vw_initial_user_password.txt"
+            log_ok "Senha da conta inicial do Vaultwarden gravada -> secrets/vw_initial_user_password.txt"
+        fi
+    fi
 fi
 
 # -----------------------------------------------------------------------------

@@ -73,7 +73,40 @@ autorregistro **aberto**.
 
 Duas formas de criar conta, sem precisar de SMTP configurado:
 
-**Opção 1 — convite pelo painel admin** (recomendada pro dia a dia):
+**Conta inicial — criada automaticamente pelo `deploy.sh`:** todo deploy
+roda `scripts/vaultwarden_bootstrap_account.sh` como última etapa. Ele é
+**idempotente**: consulta o Postgres do Vaultwarden direto (`SELECT 1
+FROM users WHERE email=...`) e só cria a conta se `VAULTWARDEN_INITIAL_USER_EMAIL`
+(`.env`) ainda não existir no banco — nunca mexe numa conta já existente,
+nunca reseta senha. Se o e-mail estiver vazio, a etapa é pulada.
+
+O `setup.sh` pergunta o e-mail/nome dessa conta (ou usa os valores do
+`.env` existente) e grava a senha em `secrets/vw_initial_user_password.txt`
+(nunca em texto plano no `.env`). Por baixo do capô, o script:
+1. Confere se a conta já existe no banco (pula se sim).
+2. Liga `SIGNUPS_ALLOWED=true` por uma janela curta, via um arquivo de
+   override temporário (`docker compose -f docker-compose.yml -f
+   .vw_signup_override.yml up -d`) — nunca edita o `docker-compose.yml`
+   rastreado pelo git.
+3. Roda `scripts/vaultwarden_create_user.py` (replica a criptografia
+   client-side do Bitwarden — derivação da chave mestra, chave simétrica,
+   par de chaves RSA — pra criar a conta já com a senha definida, sem
+   precisar de navegador).
+4. Reverte `SIGNUPS_ALLOWED` pro padrão (`false`), com um `trap` que
+   garante a reversão mesmo se o passo 3 falhar.
+
+Pra rodar isolado (sem um deploy completo), fora do fluxo do `deploy.sh`:
+```bash
+./scripts/vaultwarden_bootstrap_account.sh
+```
+
+> Troque a senha dessa conta assim que alguém logar pela primeira vez —
+> ela fica gravada em `secrets/vw_initial_user_password.txt` no host, o
+> que é aceitável pra uma conta de bootstrap, mas não é o padrão pra
+> contas novas (use o convite pelo painel admin abaixo).
+
+**Contas adicionais — convite pelo painel admin** (recomendada pro dia a
+dia, depois da conta inicial):
 1. Pegue o token do admin:
    ```bash
    cat secrets/vw_admin_token.txt
@@ -87,42 +120,12 @@ Duas formas de criar conta, sem precisar de SMTP configurado:
    versão). Repasse esse link manualmente à pessoa (chat interno,
    ticket) pra ela definir a senha mestra.
 
-**Opção 2 — conta com senha já definida** (usada pra provisionar a conta
-`suporte` inicial): o fluxo normal de registro do Bitwarden calcula a
-criptografia (derivação da chave mestra, chave simétrica do usuário, par
-de chaves RSA) **no navegador**, então não dá pra simplesmente inserir
-usuário/senha no banco. `scripts/vaultwarden_create_user.py` replica
-essa criptografia (testado ponta a ponta: cria a conta e depois
-consegue logar de verdade com a senha informada) — mas só funciona com
-`SIGNUPS_ALLOWED=true` no momento da execução:
-
-```bash
-# 1. Ligar autorregistro temporariamente
-sed -i 's/SIGNUPS_ALLOWED: "false"/SIGNUPS_ALLOWED: "true"/' docker-compose.yml
-docker compose up -d --force-recreate vaultwarden
-
-# 2. Criar a conta (troque a senha por uma definitiva antes de rodar em producao)
-python3 scripts/vaultwarden_create_user.py https://cofre.rondonopolis.mt.gov.br \
-    suporte@rondonopolis.mt.gov.br "suporte123" "Suporte TI"
-
-# 3. Desligar autorregistro de novo - NAO pular este passo
-sed -i 's/SIGNUPS_ALLOWED: "true"/SIGNUPS_ALLOWED: "false"/' docker-compose.yml
-docker compose up -d --force-recreate vaultwarden
-```
-
-> **`suporte123` é uma senha temporária e compartilhada — troque assim
-> que alguém logar pela primeira vez.** Uma senha fixa e previsível
-> numa conta que dá acesso ao cofre inteiro da prefeitura é exatamente
-> o tipo de coisa que a Opção 1 (convite individual) evita; use a
-> Opção 2 só pra provisionamento inicial, não como padrão pra contas
-> novas.
-
 > Se no futuro for necessário abrir autorregistro pra um grupo
 > controlado (ex.: um domínio de e-mail específico da prefeitura, de
 > forma permanente), isso é uma mudança deliberada no
 > `docker-compose.yml` (`SIGNUPS_ALLOWED: "true"` + `SIGNUPS_VERIFY:
 > "true"` + SMTP configurado + `SIGNUPS_DOMAINS_WHITELIST`) — diferente
-> da janela curta e proposital da Opção 2 acima.
+> da janela curta e automática do bootstrap da conta inicial acima.
 
 ### 5. SSO — login via Keycloak (ligado por padrão)
 
@@ -252,10 +255,13 @@ arquivo manualmente com `tar tzf <arquivo>` de vez em quando.
 - [ ] **Primeira conta funcional**: convidar um usuário de teste pelo
       painel admin, completar a definição de senha mestra pelo link, e
       confirmar login normal no web vault.
-- [ ] **Conta `suporte` provisionada**: `suporte@rondonopolis.mt.gov.br`
-      criada via `scripts/vaultwarden_create_user.py` (Opção 2 da seção 4
-      acima) consegue logar com a senha temporária — e a senha já foi
-      trocada por uma definitiva, não fica com `suporte123` em produção.
+- [ ] **Conta inicial provisionada**: o e-mail em
+      `VAULTWARDEN_INITIAL_USER_EMAIL` (`.env`) consegue logar com a
+      senha de `secrets/vw_initial_user_password.txt` — criada
+      automaticamente pelo `deploy.sh` (ver seção 4 acima). Rodar
+      `./deploy.sh` de novo deve mostrar "já existe - nada a fazer" pra
+      essa conta (idempotência). A senha já foi trocada por uma
+      definitiva, não fica com o valor de provisionamento em produção.
 - [ ] **Backup cobre os três artefatos**: rodar `scripts/backup.sh`
       manualmente e confirmar que gerou `keycloak_*.sql.gz`,
       `vaultwarden_*.sql.gz` **e** `vaultwarden_data_*.tar.gz` no
