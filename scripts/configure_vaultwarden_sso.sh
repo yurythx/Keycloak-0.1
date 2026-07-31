@@ -49,7 +49,7 @@ step "Dados da integracao (Enter mantem o valor atual/padrao)"
 # -----------------------------------------------------------------------------
 # Extrai o realm de dentro de VAULTWARDEN_SSO_AUTHORITY se ja estiver
 # preenchido (".../realms/<realm>"), senao cai no padrao desta stack.
-DEFAULT_REALM="prefeitura"
+DEFAULT_REALM="Prefeitura"
 if [ -n "${VAULTWARDEN_SSO_AUTHORITY:-}" ] && [[ "$VAULTWARDEN_SSO_AUTHORITY" == */realms/* ]]; then
     DEFAULT_REALM="${VAULTWARDEN_SSO_AUTHORITY##*/realms/}"
 fi

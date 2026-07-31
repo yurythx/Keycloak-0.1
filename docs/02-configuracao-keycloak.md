@@ -16,7 +16,7 @@ Acesse `https://sso.rondonopolis.mt.gov.br/admin` e logue como `kc_admin`
 com a senha acima.
 
 ### 2. Criar o realm de produção
-Criar o realm `prefeitura`. O realm `master` fica isolado, de uso
+Criar o realm `Prefeitura`. O realm `master` fica isolado, de uso
 exclusivo administrativo — nenhum client ou usuário de aplicação deve ser
 criado nele.
 
@@ -26,7 +26,7 @@ criado nele.
 > pode ser feito a qualquer momento.
 
 ### 3. Criar grupos e usuário de teste
-No realm `prefeitura`, criar os grupos `TI_ADMIN` e `SERVIDOR_GERAL`, e um
+No realm `Prefeitura`, criar os grupos `TI_ADMIN` e `SERVIDOR_GERAL`, e um
 usuário local de teste (`teste.ti`) com senha temporária.
 
 ### 4. Criar o client de teste
@@ -43,7 +43,7 @@ Criar o client `test-oidc`, Access Type `Confidential`.
        --data-urlencode "username=teste.ti" \
        --data-urlencode "password=<SENHA>" \
        -d "grant_type=password" \
-       https://sso.rondonopolis.mt.gov.br/realms/prefeitura/protocol/openid-connect/token
+       https://sso.rondonopolis.mt.gov.br/realms/Prefeitura/protocol/openid-connect/token
   ```
   Deve retornar um `access_token` JWT válido.
 
@@ -54,7 +54,7 @@ Criar o client `test-oidc`, Access Type `Confidential`.
   > validado durante o desenvolvimento desta stack).
 
 - [ ] **Auditoria do token**: decodificar em [jwt.io](https://jwt.io) e
-      confirmar que `iss` = `https://sso.rondonopolis.mt.gov.br/realms/prefeitura`.
+      confirmar que `iss` = `https://sso.rondonopolis.mt.gov.br/realms/Prefeitura`.
 
 ---
 Próxima etapa: **[Etapa 3 — Federação com o Active Directory →](03-federacao-ad.md)**

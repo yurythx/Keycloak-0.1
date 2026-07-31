@@ -130,8 +130,8 @@ dia, depois da conta inicial):
 ### 5. SSO — login via Keycloak (ligado por padrão)
 
 O Vaultwarden desta versão fala OpenID Connect nativamente e autentica
-contra **o mesmo Keycloak** desta stack (realm `prefeitura`, client
-`vaultwarden`), em vez de senha local — `VAULTWARDEN_SSO_ENABLED=true`
+contra **o mesmo Keycloak** desta stack (realm `Prefeitura`, client
+`vaultwarden-sso`), em vez de senha local — `VAULTWARDEN_SSO_ENABLED=true`
 já vem assim no `.env.example`. **Mas o client precisa existir de
 verdade no Keycloak antes do primeiro deploy com SSO ligado** — sem
 isso, `deploy.sh` recusa subir (ver preflight abaixo), o que é
@@ -158,15 +158,29 @@ processo), grava em `secrets/vw_sso_client_secret.txt`, atualiza o
 `.env` e já recria o Vaultwarden. Ao final mostra o redirect URI/web
 origin cadastrados, pra conferência.
 
-**Ou manualmente**, via `kcadm.sh` (realm `prefeitura` — ainda não
-existe? crie primeiro, ver [Etapa 2](02-configuracao-keycloak.md)):
+**Ou manualmente**, via `kcadm.sh` (realm `Prefeitura` — ainda não
+existe? crie primeiro, ver [Etapa 2](02-configuracao-keycloak.md)).
+Confira primeiro se o client já existe (nesta prefeitura ele já existia
+de antes deste repositório, criado direto pelo Admin Console — não
+recrie, só **atualize**):
 ```bash
 docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials \
     --server http://localhost:8080 --realm master --user kc_admin \
     --password "$(cat secrets/kc_admin_password.txt)"
 
-docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh create clients -r prefeitura \
-    -s clientId=vaultwarden \
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get clients -r Prefeitura \
+    -q clientId=vaultwarden-sso --fields id
+
+# Se o comando acima devolveu um "id", ATUALIZE esse client (nao crie outro):
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh update clients/<ID-ACIMA> -r Prefeitura \
+    -s 'redirectUris=["https://cofre.rondonopolis.mt.gov.br/identity/connect/oidc-signin"]' \
+    -s 'webOrigins=["https://cofre.rondonopolis.mt.gov.br"]' \
+    -s rootUrl=https://cofre.rondonopolis.mt.gov.br/ \
+    -s baseUrl=https://cofre.rondonopolis.mt.gov.br/
+
+# So' crie um client novo se o "get" acima devolver lista vazia:
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh create clients -r Prefeitura \
+    -s clientId=vaultwarden-sso \
     -s enabled=true \
     -s publicClient=false \
     -s protocol=openid-connect \
@@ -175,12 +189,12 @@ docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh create clients -r pre
     -s 'redirectUris=["https://cofre.rondonopolis.mt.gov.br/identity/connect/oidc-signin"]' \
     -s 'webOrigins=["https://cofre.rondonopolis.mt.gov.br"]'
 
-# Pega o UUID do client criado, depois o secret dele
-docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get clients -r prefeitura \
-    -q clientId=vaultwarden --fields id
-docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get "clients/<UUID-ACIMA>/client-secret" -r prefeitura
+# Pega o UUID do client, depois o secret dele
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get clients -r Prefeitura \
+    -q clientId=vaultwarden-sso --fields id
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get "clients/<UUID-ACIMA>/client-secret" -r Prefeitura
 ```
-Ou pelo Admin Console: realm `prefeitura` → Clients → Create client →
+Ou pelo Admin Console: realm `Prefeitura` → Clients → Create client →
 mesmos valores acima (Client authentication **On**, Standard flow
 **On**, Direct access grants pode desligar, redirect URI **exato**, sem
 barra a mais/a menos — o Keycloak rejeita a autorização se não bater

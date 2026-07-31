@@ -120,7 +120,7 @@ automatizar:
 docker exec keycloak_server sh -c '
   /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 \
     --realm master --user kc_admin --password "$(cat /run/secrets/kc_admin_password)"
-  /opt/keycloak/bin/kcadm.sh update realms/prefeitura -s loginTheme=prefeitura
+  /opt/keycloak/bin/kcadm.sh update realms/Prefeitura -s loginTheme=prefeitura
 '
 ```
 
@@ -138,7 +138,7 @@ docker exec keycloak_server sh -c '
    ```
    (requer login prévio do `kcadm.sh` — ver `scripts/configure_ldap.sh`
    para o padrão completo de autenticação via `kcadm`.)
-3. Acesse a tela de login do realm `prefeitura` — a logo e as cores devem
+3. Acesse a tela de login do realm `Prefeitura` — a logo e as cores devem
    aparecer. Force um refresh sem cache (`Ctrl+Shift+R`) se ainda ver o
    visual antigo.
 4. Inspecione o HTML da página (`Ver código-fonte`) e confirme que o CSS

@@ -14,7 +14,7 @@
 # docs/monitoramento.md para o mapeamento completo de metricas.
 #
 # Uso:
-#   ./scripts/session_stats.sh                 tabela legivel, realm "prefeitura"
+#   ./scripts/session_stats.sh                 tabela legivel, realm "Prefeitura"
 #   ./scripts/session_stats.sh <realm>          tabela legivel, outro realm
 #   ./scripts/session_stats.sh <realm> --total  so' o numero total (Zabbix
 #                                                UserParameter/external check)
@@ -26,7 +26,7 @@ cd "$SCRIPT_DIR"
 # shellcheck source=scripts/lib/theme.sh
 source "scripts/lib/theme.sh"
 
-REALM="prefeitura"
+REALM="Prefeitura"
 TOTAL_ONLY=0
 for arg in "$@"; do
     case "$arg" in

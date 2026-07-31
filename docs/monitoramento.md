@@ -85,7 +85,7 @@ endpoint real, confirmado ao vivo) via `kcadm.sh` dentro do contêiner —
 mesmo padrão de autenticação já usado por `scripts/configure_ldap.sh`.
 
 ```bash
-./scripts/session_stats.sh                  # tabela do realm "prefeitura"
+./scripts/session_stats.sh                  # tabela do realm "Prefeitura"
 ./scripts/session_stats.sh master            # tabela de outro realm
 ./scripts/session_stats.sh prefeitura --total  # so' o numero (Zabbix)
 ```

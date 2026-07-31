@@ -82,8 +82,8 @@ if [ -f .env ]; then
         log_warn ".env sem variaveis do Vaultwarden - adicionadas com os padroes (confira VAULTWARDEN_BIND=192.168.0.225 - precisa ser um IP que esta VM realmente tenha)"
     fi
     if ! grep -qE '^VAULTWARDEN_SSO_ENABLED=' .env 2>/dev/null; then
-        printf '\nVAULTWARDEN_DOMAIN=https://cofre.rondonopolis.mt.gov.br\nVAULTWARDEN_SSO_ENABLED=true\nVAULTWARDEN_SSO_AUTHORITY=https://sso.rondonopolis.mt.gov.br/realms/prefeitura\nVAULTWARDEN_SSO_CLIENT_ID=vaultwarden\n' >> .env
-        log_warn ".env sem variaveis do Vaultwarden/SSO - adicionadas com os padroes desta prefeitura (SSO LIGADO por padrao). Confira VAULTWARDEN_DOMAIN e, ANTES do deploy, crie o client 'vaultwarden' no realm 'prefeitura' do Keycloak e cole o secret em secrets/vw_sso_client_secret.txt (ver docs/06-vaultwarden.md#sso) - senao o deploy.sh recusa subir"
+        printf '\nVAULTWARDEN_DOMAIN=https://cofre.rondonopolis.mt.gov.br\nVAULTWARDEN_SSO_ENABLED=true\nVAULTWARDEN_SSO_AUTHORITY=https://sso.rondonopolis.mt.gov.br/realms/Prefeitura\nVAULTWARDEN_SSO_CLIENT_ID=vaultwarden-sso\n' >> .env
+        log_warn ".env sem variaveis do Vaultwarden/SSO - adicionadas com os padroes desta prefeitura (SSO LIGADO por padrao). Confira VAULTWARDEN_DOMAIN e, ANTES do deploy, confirme o client 'vaultwarden-sso' no realm 'Prefeitura' do Keycloak (redirectUris apontando pro VAULTWARDEN_DOMAIN real) e cole o secret em secrets/vw_sso_client_secret.txt (ver docs/06-vaultwarden.md#sso) - senao o deploy.sh recusa subir"
     fi
     if grep -qE '^VAULTWARDEN_DOMAIN=$' .env 2>/dev/null; then
         log_warn "VAULTWARDEN_DOMAIN esta vazio no .env - o Vaultwarden RECUSA subir sem isso (precisa ser http[s]://... , achado real testando esta stack). Preencha antes do deploy"
@@ -133,15 +133,15 @@ else
 
     VAULTWARDEN_SSO_ENABLED_V="false"
     VAULTWARDEN_SSO_AUTHORITY_V=""
-    VAULTWARDEN_SSO_CLIENT_ID_V="vaultwarden"
+    VAULTWARDEN_SSO_CLIENT_ID_V="vaultwarden-sso"
     # SSO ligado por padrao nesta prefeitura (default "S") - precisa do
-    # client "vaultwarden" ja criado no realm "prefeitura" do Keycloak
+    # client "vaultwarden-sso" ja criado no realm "Prefeitura" do Keycloak
     # ANTES do deploy, senao o Vaultwarden recusa subir (mesmo
     # tratamento do VAULTWARDEN_DOMAIN acima) - deploy.sh confere isso.
-    if confirm "Login do Vaultwarden via SSO do Keycloak (precisa do client OIDC 'vaultwarden' ja criado no realm 'prefeitura' - ver docs/06-vaultwarden.md#sso)?" "S"; then
+    if confirm "Login do Vaultwarden via SSO do Keycloak (precisa do client OIDC 'vaultwarden-sso' ja criado no realm 'Prefeitura' - ver docs/06-vaultwarden.md#sso)?" "S"; then
         VAULTWARDEN_SSO_ENABLED_V="true"
-        VAULTWARDEN_SSO_AUTHORITY_V=$(ask "URL do realm no Keycloak" "https://sso.rondonopolis.mt.gov.br/realms/prefeitura")
-        VAULTWARDEN_SSO_CLIENT_ID_V=$(ask "Client ID cadastrado no Keycloak para o Vaultwarden" "vaultwarden")
+        VAULTWARDEN_SSO_AUTHORITY_V=$(ask "URL do realm no Keycloak" "https://sso.rondonopolis.mt.gov.br/realms/Prefeitura")
+        VAULTWARDEN_SSO_CLIENT_ID_V=$(ask "Client ID cadastrado no Keycloak para o Vaultwarden" "vaultwarden-sso")
         log_warn "Cole o CLIENT SECRET desse client em secrets/vw_sso_client_secret.txt antes do deploy (nao e' gerado por este script - precisa bater com o valor do Keycloak, e o client precisa existir de verdade)"
     fi
 

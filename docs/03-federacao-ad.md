@@ -35,7 +35,7 @@ de bind (gravada em `secrets/ldap_bind_password.txt`, nunca em texto
 plano no `.env`), Users DN e Groups DN — com valores padrão derivados de
 `AD_DOMAIN`/`AD_DC_HOSTNAME` do `.env`.
 
-**Manual (alternativa)**, via Admin Console → realm `prefeitura` →
+**Manual (alternativa)**, via Admin Console → realm `Prefeitura` →
 **User Federation → Add LDAP**:
 - Connection URL: `ldaps://dc01.rondonopolis.local:636`
 - Bind DN: `CN=svc-keycloak,OU=ServiceAccounts,DC=rondonopolis,DC=local`
@@ -53,7 +53,7 @@ manualmente, adicione um mapper `group-ldap-mapper` apontando para
       reiniciado).
 - [ ] **Test Authentication**: credenciais da conta de bind validadas.
 - [ ] **Synchronize all users**: servidores públicos aparecem na aba
-      `Users` do realm `prefeitura`.
+      `Users` do realm `Prefeitura`.
 - [ ] **Login real**: autenticar com a conta de rede de um servidor da
       equipe — a senha é validada diretamente contra o AD, sem ser
       persistida no banco do Keycloak.

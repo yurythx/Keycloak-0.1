@@ -427,7 +427,7 @@ nativo do Keycloak não expõe contagem de sessões, só métricas de
 infraestrutura (ver [Monitoramento](monitoramento.md) para o porquê).
 
 ```bash
-./scripts/session_stats.sh                    # tabela do realm "prefeitura"
+./scripts/session_stats.sh                    # tabela do realm "Prefeitura"
 ./scripts/session_stats.sh master              # tabela de outro realm
 ./scripts/session_stats.sh prefeitura --total  # so' o numero (Zabbix UserParameter)
 ```
@@ -579,7 +579,7 @@ Verifica a federação com o AD com um **teste de conexão síncrono de
 verdade** — não só confere se o provider LDAP existe.
 
 ```bash
-./scripts/check_ad_status.sh              # realm "prefeitura"
+./scripts/check_ad_status.sh              # realm "Prefeitura"
 ./scripts/check_ad_status.sh outro-realm
 ```
 

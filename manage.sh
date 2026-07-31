@@ -163,7 +163,7 @@ menu_ldap() {
 menu_check_ad() {
     if [ -x scripts/check_ad_status.sh ]; then
         local realm
-        realm="$(ask "Realm do Keycloak" "prefeitura")"
+        realm="$(ask "Realm do Keycloak" "Prefeitura")"
         ./scripts/check_ad_status.sh "$realm" || log_err "check_ad_status.sh terminou com erro - veja a saida acima"
     else
         log_err "scripts/check_ad_status.sh nao encontrado ou sem permissao de execucao"

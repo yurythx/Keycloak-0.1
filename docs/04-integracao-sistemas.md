@@ -29,7 +29,7 @@ validando SSO (login único) e SLO (logout único) de ponta a ponta.
   "OpenID Connect" no menu — se não aparecer SAML, a versão do Zabbix
   precisa de upgrade, mínimo recomendado 6.0+).
 - IdP metadata do Keycloak:
-  `https://sso.rondonopolis.mt.gov.br/realms/prefeitura/protocol/saml/descriptor`
+  `https://sso.rondonopolis.mt.gov.br/realms/Prefeitura/protocol/saml/descriptor`
 - Habilitar provisionamento Just-In-Time (JIT).
 
 ## Portão de Validação

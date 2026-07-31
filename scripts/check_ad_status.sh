@@ -6,7 +6,7 @@
 # (sync incremental) e mostra quantos usuarios/grupos vieram do AD.
 #
 # Uso:
-#   ./scripts/check_ad_status.sh              # usa o realm "prefeitura"
+#   ./scripts/check_ad_status.sh              # usa o realm "Prefeitura"
 #   ./scripts/check_ad_status.sh <realm>       # outro realm
 # =============================================================================
 set -uo pipefail
@@ -16,7 +16,7 @@ cd "$SCRIPT_DIR"
 # shellcheck source=scripts/lib/theme.sh
 source "scripts/lib/theme.sh"
 
-REALM_V="${1:-prefeitura}"
+REALM_V="${1:-Prefeitura}"
 
 print_header "STATUS - Federacao com o Active Directory (realm: ${REALM_V})"
 

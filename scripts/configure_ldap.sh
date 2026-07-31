@@ -60,7 +60,7 @@ if [ -n "${AD_DOMAIN:-}" ]; then
     DEFAULT_DC="DC=${AD_DOMAIN//./,DC=}"
 fi
 
-REALM_V=$(ask "Realm do Keycloak" "prefeitura")
+REALM_V=$(ask "Realm do Keycloak" "Prefeitura")
 PROVIDER_NAME_V=$(ask "Nome do provider LDAP (identificador interno)" "ldap-ad")
 LDAP_URL_V=$(ask "Connection URL do AD" "ldaps://${AD_DC_HOSTNAME:-dc01.rondonopolis.local}:636")
 BIND_DN_V=$(ask "Bind DN (conta de servico, somente leitura)" "CN=svc-keycloak,OU=ServiceAccounts,${DEFAULT_DC:-DC=rondonopolis,DC=local}")
