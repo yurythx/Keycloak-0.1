@@ -2,8 +2,8 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:000000,50:1F0D0D,100:FF4500&height=220&section=header&text=%F0%9F%94%90%20Keycloak%20SSO%20%2B%20Vault&fontSize=42&fontColor=FF4500&animation=fadeIn&fontAlignY=35&desc=Autentica%C3%A7%C3%A3o%20%C3%9Anica%20%26%20Cofre%20de%20Segredos%20da%20Prefeitura&descSize=17&descAlignY=55&descColor=FF4500" width="100%"/>
 
-<a href="https://github.com/yurythx/Keycloak0.1/actions/workflows/ci.yml">
-  <img src="https://github.com/yurythx/Keycloak0.1/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+<a href="https://github.com/yurythx/Keycloak-0.1/actions/workflows/ci.yml">
+  <img src="https://github.com/yurythx/Keycloak-0.1/actions/workflows/ci.yml/badge.svg" alt="CI"/>
 </a>
 <img src="https://img.shields.io/badge/Keycloak-26.7.0-FF4500?style=for-the-badge&logo=keycloak&logoColor=black&labelColor=000000" alt="Keycloak"/>
 <img src="https://img.shields.io/badge/Vaultwarden-Cofre%20de%20Senhas-FF4500?style=for-the-badge&logo=bitwarden&logoColor=black&labelColor=000000" alt="Vaultwarden"/>
@@ -21,18 +21,27 @@
 
 ---
 
-Stack de **Single Sign-On (SSO)** da prefeitura, construída sobre o
-[Keycloak](https://www.keycloak.org/), federada ao **Active Directory**
-via LDAPS e integrada à Intranet (Django), ao GLPI e ao Zabbix. Roda
-inteiramente em **Docker Compose** — Postgres + Keycloak, **Vaultwarden**
-(cofre de senhas, com seu próprio Postgres) e Portainer opcional —
-provisionada e operada por scripts próprios com tema visual "Matrix" no
-terminal. TLS, redirecionamento HTTP→HTTPS e balanceamento de carga
-ficam a cargo do servidor web/proxy reverso já existente na prefeitura,
-fora desta stack.
+## Uma identidade só, para toda a prefeitura
+
+A maioria das prefeituras brasileiras opera identidade de forma fragmentada:
+cada sistema (intranet, GLPI, Zabbix, e-mail) com seu próprio usuário e
+senha, credenciais de infraestrutura circulando em planilha ou papel, e
+zero trilha de auditoria de quem acessou o quê. A alternativa de mercado
+— IAM comercial (Okta, Entra ID Premium, PingFederate) — custa licença
+por usuário e mantém os dados da prefeitura fora da própria
+infraestrutura.
+
+Esta stack resolve os dois problemas com **software livre, auditável e
+rodando inteiramente dentro da rede da prefeitura**: o [Keycloak](https://www.keycloak.org/)
+federa **todos** os sistemas a uma única identidade vinda do **Active
+Directory** (LDAPS), e o **Vaultwarden** — compatível com o protocolo
+Bitwarden — dá à equipe de TI um cofre de credenciais de infraestrutura
+que **autentica com essa mesma identidade**, via OpenID Connect. Uma
+conta, dois sistemas críticos, zero senha duplicada, zero custo de
+licença, zero dado saindo do datacenter da prefeitura.
 
 ```bash
-git clone https://github.com/yurythx/Keycloak0.1.git /opt/keycloak-stack
+git clone https://github.com/yurythx/Keycloak-0.1.git /opt/keycloak-stack
 cd /opt/keycloak-stack
 ./setup.sh      # provisiona .env, segredos e certificados
 ./deploy.sh     # sobe a stack, aguarda ficar healthy, mostra o painel
@@ -50,43 +59,45 @@ cd /opt/keycloak-stack
                       │  TLS + proxy reverso  │     balanceamento de carga
                       │  + balanceamento      │
                       └──────────┬───────────┘
-                                 │ HTTP puro, porta ${KEYCLOAK_PORT}
-                                 │ (host:porta restrito por firewall
-                                 │  ao IP desse proxy)
-                      ┌──────────┴──────────┐
-                      │      Keycloak       │──── LDAPS ──→ Active Directory
-                      │  (porta 8080        │
-                      │   publicada no host) │
-                      └──────────┬──────────┘
-                                 │ rede "backend" (internal: true,
-                                 │  sem rota de saída para a internet)
-                      ┌──────────┴──────────┐
-                      │      Postgres       │  ← nunca exposto, nem para o host
-                      └─────────────────────┘
+                    ┌────────────┴────────────┐
+                    │ HTTP puro, host:porta    │
+                    │ restrito por firewall    │
+                    │ ao IP desse proxy        │
+         ┌──────────┴──────────┐    ┌──────────┴──────────┐
+         │      Keycloak       │    │     Vaultwarden      │
+         │──── LDAPS ──→ AD    │◄───┤  (login via OIDC,    │
+         │  (porta 8080,       │SSO │   PKCE, contra o     │
+         │   publicada no host)│    │   Keycloak ao lado)  │
+         └──────────┬──────────┘    └──────────┬──────────┘
+                    │ rede interna (internal: true, sem rota de saída)
+         ┌──────────┴──────────┐    ┌──────────┴──────────┐
+         │  Postgres (Keycloak) │    │ Postgres (Vaultwarden)│
+         │  nunca exposto       │    │  nunca exposto        │
+         └─────────────────────┘    └───────────────────────┘
 
   Portainer (opcional) — bind 127.0.0.1:9443, só via SSH tunnel/VPN
-
-  Vaultwarden (cofre de senhas) — stack irmã isolada (rede, banco e
-  secrets próprios), mesmo proxy reverso externo, ver docs/06-vaultwarden.md
 ```
 
-## O que essa stack já resolve
+## Dois pilares técnicos, uma única fonte de verdade
 
-| | |
-|---|---|
-| 🟢 **Build fora da VM** | GitHub Actions **e** GitLab CI, lado a lado — lint, build, scan de vulnerabilidades (Trivy) e push pro registry. A VM só faz `pull`. |
-| 🟢 **Segredos fora do git** | Senhas de 32 caracteres geradas pelo `setup.sh`, montadas via Docker secrets, permissão de arquivo ajustada pro usuário não-root do Keycloak — nunca em `.env` versionado. |
-| 🟢 **Isolamento de rede real** | Postgres numa rede `internal: true`, sem rota de saída — nem o host alcança a porta 5432. |
-| 🟢 **TLS via infraestrutura existente** | O Keycloak publica só HTTP puro numa porta não padrão do host — TLS, redirecionamento e balanceamento ficam com o servidor web/proxy reverso que a prefeitura já opera, sem duplicar essa camada dentro da stack. |
-| 🟢 **Console de operação** | `./manage.sh`, estilo TrueNAS: logs, reiniciar, backup, restore-drill, uso de recursos ao vivo (`docker stats`), shell no contêiner. |
-| 🟢 **Identidade visual** | Tema customizado do Keycloak (`keycloak.v2`/PatternFly 5) com logo e cores da prefeitura — ver [`docs/tema-visual.md`](docs/tema-visual.md). |
-| 🟢 **Achados reais documentados** | Cada incidente de produção (permissão de secret, `restart` vs `up -d`, certificado desatualizado após troca de domínio, HSTS travando o navegador) virou correção **e** nota na documentação — não só um patch silencioso. |
-| 🟢 **Vaultwarden com autorregistro fechado** | `SIGNUPS_ALLOWED=false` fixo no compose (achado de revisão de segurança) — contas são criadas só pelo admin, sem precisar de SMTP. Ver [`docs/06-vaultwarden.md`](docs/06-vaultwarden.md). |
-| 🟢 **SSO unificado Keycloak ↔ Vaultwarden** | O cofre de senhas autentica contra o mesmo Keycloak (OpenID Connect, PKCE) — uma identidade só pra SSO institucional e pra cofre de credenciais. |
+| | **Keycloak — identidade** | **Vaultwarden — segredos** |
+|---|---|---|
+| Papel | Provedor OIDC/SAML, federado ao AD via LDAPS | Cofre de credenciais compatível com clientes Bitwarden |
+| Consome do AD | Usuários, grupos, senha | — |
+| Autentica via | Realm próprio (`prefeitura`), Django/GLPI/Zabbix como clients | O **próprio Keycloak**, como client OIDC confidencial (`vaultwarden`), com PKCE |
+| Cadastro de conta | Sincronizado do AD | **Fechado por padrão** — só admin ou convite, nunca autorregistro público |
+| Banco | Postgres dedicado, rede `internal: true` | Postgres dedicado **próprio**, rede `internal: true` separada |
+| Dado crítico | Sessões, tokens JWT | `rsa_key.pem` da instância — sem ela, dados cifrados ficam irrecuperáveis mesmo com o banco intacto |
+
+A integração entre os dois **não é cosmética**: o `docker compose exec`
+que cria o client OIDC do Vaultwarden no Keycloak, o `redirect_uri`
+exato, o PKCE, e o fluxo de autorização completo (redirect → login →
+código de autorização) foram testados ponta a ponta contra a stack real
+antes de entrar na documentação — não é um diagrama aspiracional.
+
+## Segurança em camadas — nada fica exposto por acidente
 
 <div align="center">
-
-### 🔐 Segurança em camadas — nada fica exposto por acidente
 
 | Camada | O que protege | Como |
 |---|---|---|
@@ -100,12 +111,60 @@ cd /opt/keycloak-stack
 
 </div>
 
+## Achados reais, não suposições
+
+Nada nesta documentação descreve um comportamento "esperado" sem ter
+sido observado rodando de verdade. Uma amostra do que já foi encontrado
+— e corrigido — testando esta stack contra si mesma, do zero, várias
+vezes:
+
+- **`DOMAIN` vazio derruba o Vaultwarden** — não degrada, **recusa
+  iniciar** e entra em crash-loop. Virou variável obrigatória, com
+  `deploy.sh` barrando o deploy antes do container sequer tentar subir.
+- **O mesmo vale pra `SSO_ENABLED=true` sem client configurado** — erro
+  claro no preflight em vez de crash-loop em produção.
+- **Autorregistro aberto por padrão no Vaultwarden** — achado numa
+  revisão de segurança formal (multi-agente, com filtragem de falsos
+  positivos); sem a correção, qualquer pessoa alcançando a URL pública
+  criava conta própria no cofre da prefeitura.
+- **Backup cobria só o banco do Keycloak** — o banco do Vaultwarden e o
+  volume com a chave RSA da instância não entravam no backup. Corrigido
+  e testado: os dois bancos e o volume, com drill de restauração real.
+- **Criação de conta com senha pré-definida** — implementada replicando
+  a criptografia client-side do próprio Bitwarden (PBKDF2 + HKDF +
+  AES-CBC/HMAC + RSA) a partir do código-fonte oficial, e validada
+  logando de verdade com a conta criada — não assumida como "deveria
+  funcionar".
+- **502 do proxy externo** — script de diagnóstico (`scripts/diagnose_502.sh`)
+  que separa "problema nesta stack" de "problema na borda" automaticamente,
+  nascido de um incidente real de produção.
+
+Cada um desses achados tem uma nota correspondente em
+[`docs/`](docs/README.md), no ponto exato onde importa — não um
+changelog solto.
+
+## Build fora da VM, deploy sem surpresa
+
+GitHub Actions **e** GitLab CI, lado a lado — lint, build, scan de
+vulnerabilidades (Trivy) e push pra um registry de containers. A VM de
+produção **nunca builda nada**: só `docker compose pull` + `up -d`. Isso
+significa que o que sobe em produção é bit-a-bit o que passou no CI, não
+um build local que "funcionou aqui".
+
+| | |
+|---|---|
+| 🟢 **Console de operação** | `./manage.sh`, estilo TrueNAS: logs, reiniciar, backup, restore-drill, uso de recursos ao vivo (`docker stats`), shell no contêiner. |
+| 🟢 **Identidade visual** | Tema customizado do Keycloak (`keycloak.v2`/PatternFly 5) com logo e cores da prefeitura — ver [`docs/tema-visual.md`](docs/tema-visual.md). |
+| 🟢 **TLS via infraestrutura existente** | O Keycloak e o Vaultwarden publicam só HTTP puro em portas não padrão do host — TLS, redirecionamento e balanceamento ficam com o servidor web/proxy reverso que a prefeitura já opera, sem duplicar essa camada dentro da stack. |
+| 🟢 **Imagem travável** | `KEYCLOAK_IMAGE_TAG` pode ser fixado num `sha-xxxxxxx` específico em produção — reprodutibilidade em vez de `latest` flutuante. |
+
 ## Documentação completa
 
 Todo o passo a passo operacional — pré-requisitos, provisionamento,
-federação com o AD, integração dos sistemas, go-live — está em
-[**`docs/README.md`**](docs/README.md), organizado em etapas com
-portões de validação (Go/No-Go) entre cada uma.
+federação com o AD, integração dos sistemas, go-live, cofre de senhas —
+está em [**`docs/README.md`**](docs/README.md), organizado em etapas com
+portões de validação (Go/No-Go) entre cada uma. Nenhuma etapa avança sem
+que a anterior prove que funciona de verdade.
 
 | Etapa | Documento |
 |---|---|
