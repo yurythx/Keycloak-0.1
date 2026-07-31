@@ -84,13 +84,27 @@ log_ok "Docker ativo"
 [ -f .env ] || die ".env nao encontrado - rode ./setup.sh primeiro"
 log_ok ".env presente"
 
-for f in secrets/postgres_password.txt secrets/kc_admin_password.txt secrets/vw_postgres_password.txt; do
+for f in secrets/postgres_password.txt secrets/kc_admin_password.txt secrets/vw_postgres_password.txt secrets/vw_admin_token.txt; do
     [ -s "$f" ] || die "$f ausente/vazio - rode ./setup.sh primeiro"
 done
+# vw_sso_client_secret.txt e' o unico que pode ficar VAZIO de proposito
+# (SSO desligado por padrao) - so' precisa existir, pro "secrets:" do
+# compose nao falhar por arquivo ausente.
+[ -f secrets/vw_sso_client_secret.txt ] || die "secrets/vw_sso_client_secret.txt ausente - rode ./setup.sh primeiro"
+if grep -qE '^VAULTWARDEN_SSO_ENABLED=true' .env 2>/dev/null && [ ! -s secrets/vw_sso_client_secret.txt ]; then
+    die "VAULTWARDEN_SSO_ENABLED=true no .env mas secrets/vw_sso_client_secret.txt esta vazio - cole o client secret do Keycloak nele (ver docs/06-vaultwarden.md#sso)"
+fi
 log_ok "Segredos presentes (secrets/*.txt)"
 
 grep -qE '^PROXY_TRUSTED_ADDRESSES=.+$' .env 2>/dev/null || die "PROXY_TRUSTED_ADDRESSES ausente/vazio no .env - preencha com o IP do proxy reverso da prefeitura (rode ./setup.sh se precisar)"
 log_ok "PROXY_TRUSTED_ADDRESSES presente no .env"
+
+# VAULTWARDEN_DOMAIN e' obrigatoria pro proprio Vaultwarden, nao so' pra
+# esta stack - achado real: com a variavel vazia o contêiner nao apenas
+# funciona com recursos limitados, ele RECUSA subir ("DOMAIN variable
+# needs to contain the protocol") e fica em crash-loop.
+grep -qE '^VAULTWARDEN_DOMAIN=.+$' .env 2>/dev/null || die "VAULTWARDEN_DOMAIN ausente/vazio no .env - o Vaultwarden recusa subir sem isso (precisa ser http[s]://... , rode ./setup.sh se precisar)"
+log_ok "VAULTWARDEN_DOMAIN presente no .env"
 
 KEYCLOAK_BIND_V="$(grep -E '^KEYCLOAK_BIND=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"
 KEYCLOAK_PORT_V="$(grep -E '^KEYCLOAK_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r')"

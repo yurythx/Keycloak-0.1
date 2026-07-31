@@ -15,9 +15,11 @@ entrega tudo executável.
 | [`manage.sh`](#managesh) | Console de gerenciamento do dia a dia | Operação contínua |
 | [`scripts/configure_ldap.sh`](#scriptsconfigure_ldapsh) | Federação com o AD | Etapa 3 |
 | [`scripts/install_console_menu.sh`](#scriptsinstall_console_menush) | Menu automático no login | Opcional, uma vez |
-| [`scripts/backup.sh`](#scriptsbackupsh) | Backup lógico do Postgres | Etapa 5, via cron |
+| [`scripts/backup.sh`](#scriptsbackupsh) | Backup lógico do Postgres (Keycloak e Vaultwarden) + dados do Vaultwarden | Etapa 5, via cron |
 | [`scripts/restore_test.sh`](#scriptsrestore_testsh) | Drill de restauração | Etapa 5, sob demanda |
 | [`scripts/session_stats.sh`](#scriptssession_statssh) | Sessões ativas (API Admin) | Monitoramento, sob demanda ou via Zabbix |
+| [`scripts/diagnose_502.sh`](#scriptsdiagnose_502sh) | Diagnóstico de 502 no proxy externo | Troubleshooting, sob demanda |
+| [`scripts/vaultwarden_create_user.py`](#scriptsvaultwarden_create_userpy) | Cria conta no Vaultwarden com senha pré-definida | Etapa 6, provisionamento inicial |
 
 ---
 
@@ -349,13 +351,22 @@ ainda precisa ser feita à parte.
 
 ## `scripts/backup.sh`
 
-Backup lógico diário do banco do Keycloak (via `pg_dump`), com
-compressão, checagem de erro e retenção configurável.
+Backup lógico diário dos bancos do Keycloak **e** do Vaultwarden (via
+`pg_dump`, um dump `.sql.gz` para cada), mais um `.tar.gz` do volume de
+dados do Vaultwarden (`rsa_key.pem`, anexos, sends, cache de ícones —
+sem isso, dados cifrados ficam irrecuperáveis mesmo com o dump do banco
+intacto, ver [Etapa 6](06-vaultwarden.md)). Compressão, checagem de erro
+e retenção configurável em todos os artefatos.
 
 ```bash
 ./scripts/backup.sh
 BACKUP_DIR=/mnt/outro/lugar RETENTION_DAYS=30 ./scripts/backup.sh
 ```
+
+Gera três arquivos por execução: `keycloak_<data>.sql.gz`,
+`vaultwarden_<data>.sql.gz` e `vaultwarden_data_<data>.tar.gz`. Se
+qualquer um dos três falhar, o script continua tentando os demais mas
+termina com código de saída != 0 (não mascara falha parcial).
 
 Uso recomendado via cron (ver [Etapa 5](05-golive-operacao.md)):
 ```
@@ -379,19 +390,24 @@ Variáveis de ambiente: `BACKUP_DIR` (padrão `/mnt/backup_nfs`),
 
 ## `scripts/restore_test.sh`
 
-Drill de restauração: restaura o backup mais recente (ou um especificado)
+Drill de restauração: restaura o dump mais recente (ou um especificado)
 num contêiner Postgres **descartável e isolado**, valida a integridade
 dos dados, e remove o contêiner de teste ao final — sem tocar no banco de
-produção em nenhum momento.
+produção em nenhum momento. Reconhece tanto os dumps `keycloak_*.sql.gz`
+quanto `vaultwarden_*.sql.gz` que o `backup.sh` gera — sem argumento,
+pega o mais recente entre os dois; passe o caminho explicitamente pra
+testar os dois exatamente.
 
 ```bash
-./scripts/restore_test.sh                       # usa o backup mais recente em $BACKUP_DIR
-./scripts/restore_test.sh /caminho/para/dump.sql.gz
+./scripts/restore_test.sh                       # usa o dump mais recente (qualquer um) em $BACKUP_DIR
+./scripts/restore_test.sh /caminho/para/keycloak_20260101_020000.sql.gz
+./scripts/restore_test.sh /caminho/para/vaultwarden_20260101_020000.sql.gz
 ```
 
 Sai com `PASS` e a contagem de tabelas restauradas se tudo der certo, ou
 mensagem de erro clara se o dump estiver corrompido ou a restauração
-falhar.
+falhar. **Não** valida o `vaultwarden_data_*.tar.gz` (não é um dump SQL)
+— confira esse arquivo manualmente com `tar tzf <arquivo>`.
 
 ---
 
@@ -411,3 +427,57 @@ infraestrutura (ver [Monitoramento](monitoramento.md) para o porquê).
 Mesmo padrão de autenticação via `kcadm.sh` já usado em
 `scripts/configure_ldap.sh`. Testado ao vivo: autenticação real,
 consulta ao realm `master`, tabela e modo `--total` conferidos.
+
+---
+
+## `scripts/diagnose_502.sh`
+
+Diagnóstico de "502 Bad Gateway" reportado pelo proxy reverso externo.
+Roda **nesta VM** (a do Keycloak) e responde a única pergunta que
+importa antes de mexer em qualquer outra coisa: "o problema está nesta
+stack, ou está na borda (firewall/proxy externo)?" — checa contêiner
+saudável, resposta HTTP local, porta publicada no endereço certo,
+regras de `ufw`, e o estado de `PROXY_TRUSTED_ADDRESSES`.
+
+```bash
+./scripts/diagnose_502.sh                 # checagens locais
+./scripts/diagnose_502.sh <IP-do-proxy>   # tambem confere regra de firewall pra esse IP
+```
+
+Ver [checklist completo de 502](scripts-referencia.md#erro-502-bad-gateway-proxy-externo--esta-stack)
+mais acima e [`docs/exemplo-nginx-proxy-externo.conf`](exemplo-nginx-proxy-externo.conf).
+
+---
+
+## `scripts/vaultwarden_create_user.py`
+
+Cria uma conta no Vaultwarden com senha mestra **pré-definida**,
+replicando em Python a criptografia client-side do Bitwarden (PBKDF2
+pra derivar a chave mestra, HKDF pra "esticar" ela, AES-256-CBC +
+HMAC-SHA256 pra proteger a chave simétrica do usuário e o par de chaves
+RSA — o servidor nunca vê a senha em texto claro nem os dados
+descriptografados). Usado pra provisionar a conta `suporte` inicial do
+Vaultwarden sem depender do fluxo de convite por link (ver
+[Etapa 6](06-vaultwarden.md#4-autorregistro-desligado--criar-a-primeira-conta-pelo-admin)).
+
+Só funciona com `SIGNUPS_ALLOWED=true` no `docker-compose.yml` no
+momento da execução — o próprio Vaultwarden recusa registrar se
+estiver desligado (comportamento correto, é a mesma proteção contra
+autorregistro público da Etapa 6). Requer `pip install cryptography`.
+
+```bash
+sed -i 's/SIGNUPS_ALLOWED: "false"/SIGNUPS_ALLOWED: "true"/' docker-compose.yml
+docker compose up -d --force-recreate vaultwarden
+
+python3 scripts/vaultwarden_create_user.py https://cofre.rondonopolis.mt.gov.br \
+    suporte@rondonopolis.mt.gov.br "SenhaForte123!" "Suporte TI"
+
+sed -i 's/SIGNUPS_ALLOWED: "true"/SIGNUPS_ALLOWED: "false"/' docker-compose.yml
+docker compose up -d --force-recreate vaultwarden
+```
+
+Testado ao vivo durante o desenvolvimento desta stack: conta criada e,
+na sequência, login real conferido (token de acesso emitido) com a
+senha informada — inclusive depois de `SIGNUPS_ALLOWED` voltar pra
+`false` (a restrição só afeta registro de conta nova, não login de
+conta existente).

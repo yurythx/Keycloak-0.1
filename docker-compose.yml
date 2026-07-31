@@ -31,6 +31,10 @@ secrets:
     file: ./secrets/kc_admin_password.txt
   vw_postgres_password:
     file: ./secrets/vw_postgres_password.txt
+  vw_admin_token:
+    file: ./secrets/vw_admin_token.txt
+  vw_sso_client_secret:
+    file: ./secrets/vw_sso_client_secret.txt
 
 x-logging: &default-logging
   driver: json-file
@@ -230,8 +234,42 @@ services:
       # valida de qual IP o header veio, so' confia cegamente se
       # IP_HEADER estiver setado.
       IP_HEADER: X-Forwarded-For
+      # Autorregistro DESLIGADO de proposito - achado de revisao de
+      # seguranca: sem isso, qualquer pessoa que alcance a URL publica
+      # cria conta propria neste cofre da prefeitura sem aprovacao (o
+      # padrao do Vaultwarden e' SIGNUPS_ALLOWED=true). Contas novas
+      # sao criadas pelo admin via /admin (ADMIN_TOKEN abaixo) e
+      # convidadas por ali - nao precisa de SMTP/e-mail configurado, o
+      # link de convite/reset aparece no log do container
+      # ("docker compose logs vaultwarden") pro admin repassar manualmente.
+      SIGNUPS_ALLOWED: "false"
+      # Habilita o painel /admin (criar/gerenciar usuarios sem autorregistro
+      # e sem SMTP) - token lido do secret abaixo, nunca em texto plano no .env.
+      ADMIN_TOKEN_FILE: /run/secrets/vw_admin_token
+      # URL publica deste Vaultwarden - OBRIGATORIA (achado real: com a
+      # variavel vazia o Vaultwarden nao apenas ignora, ele RECUSA subir -
+      # "DOMAIN variable needs to contain the protocol". Mesmo papel do
+      # KC_HOSTNAME do Keycloak, e mesmo tratamento de obrigatoriedade
+      # (deploy.sh/setup.sh verificam, ver PROXY_TRUSTED_ADDRESSES).
+      DOMAIN: ${VAULTWARDEN_DOMAIN}
+      # Login via SSO (OpenID Connect) contra o MESMO Keycloak desta stack -
+      # desligado por padrao (nao quebra quem ainda nao configurou um
+      # client no Keycloak para isso). Ver docs/06-vaultwarden.md#sso.
+      # SSO_AUTHORITY precisa ser a URL PUBLICA do realm (a mesma que o
+      # navegador do usuario acessa) - nao um atalho de rede interna: o
+      # navegador precisa alcancar o endpoint de autorizacao, e o proprio
+      # Vaultwarden (backend) faz a troca do code por token contra essa
+      # mesma URL depois.
+      SSO_ENABLED: ${VAULTWARDEN_SSO_ENABLED:-false}
+      SSO_AUTHORITY: ${VAULTWARDEN_SSO_AUTHORITY:-}
+      SSO_CLIENT_ID: ${VAULTWARDEN_SSO_CLIENT_ID:-vaultwarden}
+      SSO_CLIENT_SECRET_FILE: /run/secrets/vw_sso_client_secret
+      SSO_SCOPES: "openid email profile"
+      SSO_PKCE: "true"
     secrets:
       - vw_postgres_password
+      - vw_admin_token
+      - vw_sso_client_secret
     volumes:
       - vw_app_data:/data
       # O entrypoint padrao da imagem (/start.sh) executa qualquer *.sh

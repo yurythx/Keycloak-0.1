@@ -1,5 +1,8 @@
 #!/bin/bash
-# Backup logico diario do banco do Keycloak.
+# Backup logico diario dos bancos desta stack (Keycloak e Vaultwarden) +
+# backup do volume de dados do Vaultwarden (rsa_key.pem, anexos, sends,
+# cache de icones - sem a chave RSA, os "sends" e alguns dados cifrados
+# ficam irrecuperaveis mesmo com o banco intacto).
 # Uso (cron, 02:00 todo dia):
 #   0 2 * * * /opt/keycloak-stack/scripts/backup.sh >> /var/log/keycloak-backup.log 2>&1
 set -euo pipefail
@@ -15,6 +18,8 @@ cd "$STACK_DIR"
 
 POSTGRES_DB="${POSTGRES_DB:-keycloak}"
 POSTGRES_USER="${POSTGRES_USER:-keycloak_user}"
+VW_POSTGRES_DB="${VW_POSTGRES_DB:-vaultwarden}"
+VW_POSTGRES_USER="${VW_POSTGRES_USER:-vw_user}"
 
 mkdir -p "$BACKUP_DIR"
 
@@ -36,21 +41,50 @@ if [ -n "$ROOT_DEV" ] && [ "$ROOT_DEV" = "$BACKUP_DEV" ]; then
     fi
 fi
 
-OUT_FILE="${BACKUP_DIR}/keycloak_${DATE}.sql.gz"
-TMP_FILE="${OUT_FILE}.part"
+FAILED=0
 
-echo "[$(date '+%F %T')] Iniciando backup de '${POSTGRES_DB}' -> ${OUT_FILE}"
+# dump_db <label> <service> <db> <user>
+dump_db() {
+    local label="$1" service="$2" db="$3" user="$4"
+    local out="${BACKUP_DIR}/${label}_${DATE}.sql.gz"
+    local tmp="${out}.part"
 
-if docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "$TMP_FILE"; then
-    mv "$TMP_FILE" "$OUT_FILE"
-    echo "[$(date '+%F %T')] Backup concluido: ${OUT_FILE} ($(du -h "$OUT_FILE" | cut -f1))"
+    echo "[$(date '+%F %T')] Iniciando backup de '${db}' (${label}) -> ${out}"
+    if docker compose exec -T "$service" pg_dump -U "$user" "$db" | gzip > "$tmp"; then
+        mv "$tmp" "$out"
+        echo "[$(date '+%F %T')] Backup concluido: ${out} ($(du -h "$out" | cut -f1))"
+    else
+        rm -f "$tmp"
+        echo "[$(date '+%F %T')] ERRO: falha ao gerar o backup de '${db}' (${label})" >&2
+        FAILED=1
+    fi
+}
+
+dump_db "keycloak" postgres "$POSTGRES_DB" "$POSTGRES_USER"
+dump_db "vaultwarden" vaultwarden-db "$VW_POSTGRES_DB" "$VW_POSTGRES_USER"
+
+# Volume de dados do Vaultwarden (nao e' so' o banco - rsa_key.pem, anexos,
+# sends e cache de icones vivem em /data dentro do container, fora do
+# Postgres). Sem a rsa_key.pem, alguns dados cifrados ficam irrecuperaveis
+# mesmo restaurando o dump do banco corretamente.
+VW_DATA_OUT="${BACKUP_DIR}/vaultwarden_data_${DATE}.tar.gz"
+VW_DATA_TMP="${VW_DATA_OUT}.part"
+echo "[$(date '+%F %T')] Iniciando backup do volume de dados do Vaultwarden -> ${VW_DATA_OUT}"
+if docker compose exec -T vaultwarden tar czf - -C /data . > "$VW_DATA_TMP" 2>/dev/null; then
+    mv "$VW_DATA_TMP" "$VW_DATA_OUT"
+    echo "[$(date '+%F %T')] Backup concluido: ${VW_DATA_OUT} ($(du -h "$VW_DATA_OUT" | cut -f1))"
 else
-    rm -f "$TMP_FILE"
-    echo "[$(date '+%F %T')] ERRO: falha ao gerar o backup" >&2
-    exit 1
+    rm -f "$VW_DATA_TMP"
+    echo "[$(date '+%F %T')] ERRO: falha ao gerar o backup do volume de dados do Vaultwarden" >&2
+    FAILED=1
 fi
 
 echo "[$(date '+%F %T')] Removendo backups com mais de ${RETENTION_DAYS} dias"
-find "$BACKUP_DIR" -name 'keycloak_*.sql.gz' -mtime "+${RETENTION_DAYS}" -delete
+find "$BACKUP_DIR" \( -name 'keycloak_*.sql.gz' -o -name 'vaultwarden_*.sql.gz' -o -name 'vaultwarden_data_*.tar.gz' \) -mtime "+${RETENTION_DAYS}" -delete
+
+if [ "$FAILED" = "1" ]; then
+    echo "[$(date '+%F %T')] Backup finalizado COM FALHAS - veja os erros acima" >&2
+    exit 1
+fi
 
 echo "[$(date '+%F %T')] Backup finalizado com sucesso"

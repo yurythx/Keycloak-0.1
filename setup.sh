@@ -81,6 +81,13 @@ if [ -f .env ]; then
         printf '\nVW_POSTGRES_DB=vaultwarden\nVW_POSTGRES_USER=vw_user\nVAULTWARDEN_VERSION=latest\nVAULTWARDEN_BIND=192.168.0.225\nVAULTWARDEN_HTTP_PORT=8081\nVAULTWARDEN_WS_PORT=3012\n' >> .env
         log_warn ".env sem variaveis do Vaultwarden - adicionadas com os padroes (confira VAULTWARDEN_BIND=192.168.0.225 - precisa ser um IP que esta VM realmente tenha)"
     fi
+    if ! grep -qE '^VAULTWARDEN_SSO_ENABLED=' .env 2>/dev/null; then
+        printf '\nVAULTWARDEN_DOMAIN=https://cofre.rondonopolis.mt.gov.br\nVAULTWARDEN_SSO_ENABLED=true\nVAULTWARDEN_SSO_AUTHORITY=https://sso.rondonopolis.mt.gov.br/realms/prefeitura\nVAULTWARDEN_SSO_CLIENT_ID=vaultwarden\n' >> .env
+        log_warn ".env sem variaveis do Vaultwarden/SSO - adicionadas com os padroes desta prefeitura (SSO LIGADO por padrao). Confira VAULTWARDEN_DOMAIN e, ANTES do deploy, crie o client 'vaultwarden' no realm 'prefeitura' do Keycloak e cole o secret em secrets/vw_sso_client_secret.txt (ver docs/06-vaultwarden.md#sso) - senao o deploy.sh recusa subir"
+    fi
+    if grep -qE '^VAULTWARDEN_DOMAIN=$' .env 2>/dev/null; then
+        log_warn "VAULTWARDEN_DOMAIN esta vazio no .env - o Vaultwarden RECUSA subir sem isso (precisa ser http[s]://... , achado real testando esta stack). Preencha antes do deploy"
+    fi
 else
     [ -f .env.example ] || die ".env.example nao encontrado no repositorio"
     cp .env.example .env
@@ -114,6 +121,25 @@ else
     VAULTWARDEN_BIND_V=$(ask "IP do host onde o Vaultwarden fica exposto pro proxy da prefeitura encaminhar" "192.168.0.225")
     VAULTWARDEN_HTTP_PORT_V=$(ask "Porta HTTP do Vaultwarden nesse IP" "8081")
     VAULTWARDEN_WS_PORT_V=$(ask "Porta do WebSocket do Vaultwarden (sincronizacao em tempo real)" "3012")
+    VAULTWARDEN_DOMAIN_V=$(ask "URL publica do Vaultwarden (https://...)" "https://cofre.rondonopolis.mt.gov.br")
+    while [ -z "$VAULTWARDEN_DOMAIN_V" ]; do
+        log_warn "Obrigatorio - o Vaultwarden recusa subir sem isso (precisa conter http:// ou https://)"
+        VAULTWARDEN_DOMAIN_V=$(ask "URL publica do Vaultwarden (https://...)" "https://cofre.rondonopolis.mt.gov.br")
+    done
+
+    VAULTWARDEN_SSO_ENABLED_V="false"
+    VAULTWARDEN_SSO_AUTHORITY_V=""
+    VAULTWARDEN_SSO_CLIENT_ID_V="vaultwarden"
+    # SSO ligado por padrao nesta prefeitura (default "S") - precisa do
+    # client "vaultwarden" ja criado no realm "prefeitura" do Keycloak
+    # ANTES do deploy, senao o Vaultwarden recusa subir (mesmo
+    # tratamento do VAULTWARDEN_DOMAIN acima) - deploy.sh confere isso.
+    if confirm "Login do Vaultwarden via SSO do Keycloak (precisa do client OIDC 'vaultwarden' ja criado no realm 'prefeitura' - ver docs/06-vaultwarden.md#sso)?" "S"; then
+        VAULTWARDEN_SSO_ENABLED_V="true"
+        VAULTWARDEN_SSO_AUTHORITY_V=$(ask "URL do realm no Keycloak" "https://sso.rondonopolis.mt.gov.br/realms/prefeitura")
+        VAULTWARDEN_SSO_CLIENT_ID_V=$(ask "Client ID cadastrado no Keycloak para o Vaultwarden" "vaultwarden")
+        log_warn "Cole o CLIENT SECRET desse client em secrets/vw_sso_client_secret.txt antes do deploy (nao e' gerado por este script - precisa bater com o valor do Keycloak, e o client precisa existir de verdade)"
+    fi
 
     cat > .env <<EOF
 # Gerado por setup.sh em $(date '+%F %T')
@@ -152,6 +178,13 @@ VAULTWARDEN_VERSION=latest
 VAULTWARDEN_BIND=${VAULTWARDEN_BIND_V}
 VAULTWARDEN_HTTP_PORT=${VAULTWARDEN_HTTP_PORT_V}
 VAULTWARDEN_WS_PORT=${VAULTWARDEN_WS_PORT_V}
+VAULTWARDEN_DOMAIN=${VAULTWARDEN_DOMAIN_V}
+
+# SSO do Vaultwarden contra o Keycloak - client secret NAO vai aqui,
+# fica em secrets/vw_sso_client_secret.txt (ver docs/06-vaultwarden.md#sso)
+VAULTWARDEN_SSO_ENABLED=${VAULTWARDEN_SSO_ENABLED_V}
+VAULTWARDEN_SSO_AUTHORITY=${VAULTWARDEN_SSO_AUTHORITY_V}
+VAULTWARDEN_SSO_CLIENT_ID=${VAULTWARDEN_SSO_CLIENT_ID_V}
 EOF
     log_ok ".env preenchido"
 fi
@@ -200,6 +233,22 @@ make_secret_file() {
 make_secret_file "secrets/postgres_password.txt" "Senha do Postgres"
 make_secret_file "secrets/kc_admin_password.txt" "Senha do admin do Keycloak"
 make_secret_file "secrets/vw_postgres_password.txt" "Senha do Postgres do Vaultwarden"
+# Token do painel /admin do Vaultwarden - com SIGNUPS_ALLOWED=false (ver
+# docker-compose.yml), e' por ali que contas de usuario sao criadas.
+make_secret_file "secrets/vw_admin_token.txt" "Token do admin do Vaultwarden"
+
+# Client secret do SSO (Vaultwarden -> Keycloak) - NAO gerado aleatorio
+# (precisa bater com o valor configurado no client OIDC do Keycloak, ver
+# docs/06-vaultwarden.md#sso). So' garante que o arquivo existe (vazio
+# = SSO desligado funciona normal, ver VAULTWARDEN_SSO_ENABLED acima) -
+# "docker compose" precisa do arquivo presente mesmo com o secret vazio.
+if [ ! -f secrets/vw_sso_client_secret.txt ]; then
+    : > secrets/vw_sso_client_secret.txt
+    fix_secret_perms "secrets/vw_sso_client_secret.txt"
+    log_info "secrets/vw_sso_client_secret.txt criado vazio - preencha com o client secret do Keycloak se for usar SSO (ver docs/06-vaultwarden.md#sso)"
+else
+    fix_secret_perms "secrets/vw_sso_client_secret.txt"
+fi
 
 # -----------------------------------------------------------------------------
 step "Proxy reverso externo"

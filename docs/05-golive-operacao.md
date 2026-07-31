@@ -1,6 +1,6 @@
 # Etapa 5 — Go-Live, Operação e Monitoramento Contínuo
 
-[← Etapa 4](04-integracao-sistemas.md) · [Índice](README.md) · Próximo: [Verificação End-to-End →](verificacao-final.md)
+[← Etapa 4](04-integracao-sistemas.md) · [Índice](README.md) · Próxima etapa: [Etapa 6 →](06-vaultwarden.md)
 
 Última etapa antes do go-live: políticas de segurança do realm, backup
 automatizado, e as ferramentas do dia a dia para operar a stack depois
@@ -101,4 +101,4 @@ segurança em [Referência de Scripts](scripts-referencia.md#portainer).
       apontando para um ponto de montagem externo de verdade.
 
 ---
-Próximo: **[Verificação End-to-End →](verificacao-final.md)**
+Próxima etapa: **[Etapa 6 — Vaultwarden (Cofre de Senhas) →](06-vaultwarden.md)**

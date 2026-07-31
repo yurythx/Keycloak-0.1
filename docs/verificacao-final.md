@@ -1,6 +1,6 @@
 # Verificação End-to-End
 
-[← Etapa 5](05-golive-operacao.md) · [Índice](README.md)
+[← Etapa 6](06-vaultwarden.md) · [Índice](README.md)
 
 Checklist final antes do go-live real em produção — roda tudo de ponta a
 ponta uma última vez, de preferência em ambiente de homologação primeiro.
@@ -27,5 +27,11 @@ ponta uma última vez, de preferência em ambiente de homologação primeiro.
       `KEYCLOAK_PORT` a esse IP, e um login completo via
       `https://<KC_HOSTNAME>` (de fora da VM) não gera nenhum link
       `http://` no fluxo OIDC ([Referência de Scripts](scripts-referencia.md#proxy-reverso-externo)).
+- [ ] Vaultwarden confirmado ([Etapa 6](06-vaultwarden.md)): autorregistro
+      tentado pela tela pública falha (`SIGNUPS_ALLOWED=false`), `/admin`
+      não abre sem o token de `secrets/vw_admin_token.txt`, firewall da
+      VM restringe `VAULTWARDEN_HTTP_PORT`/`VAULTWARDEN_WS_PORT` ao IP do
+      proxy da prefeitura, e `scripts/backup.sh` gerou os três artefatos
+      (`keycloak_*`, `vaultwarden_*`, `vaultwarden_data_*`).
 
 Se todos os itens acima passarem, a stack está pronta para o go-live.

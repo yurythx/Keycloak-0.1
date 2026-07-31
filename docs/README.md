@@ -2,10 +2,10 @@
 
 Autenticação única (SSO) da prefeitura via Keycloak, com federação ao
 Active Directory (LDAPS) e integração com Intranet (Django), GLPI e
-Zabbix. Stack em Docker Compose (Postgres + Keycloak, com Portainer
-opcional), build e publicação de imagem via CI/CD. TLS, redirect e
-balanceamento ficam a cargo do proxy reverso que a prefeitura já opera,
-fora desta stack.
+Zabbix. Stack em Docker Compose (Postgres + Keycloak, Vaultwarden — cofre
+de senhas, com seu próprio Postgres — e Portainer opcional), build e
+publicação de imagem via CI/CD. TLS, redirect e balanceamento ficam a
+cargo do proxy reverso que a prefeitura já opera, fora desta stack.
 
 ## Regra de ouro
 
@@ -39,6 +39,9 @@ validação — não pule etapas.
                       └─────────────────────┘
 
   Portainer (opcional) — bind 127.0.0.1:9443, só via SSH tunnel/VPN
+
+  Vaultwarden (cofre de senhas) — stack irmã isolada (rede, banco e
+  secrets próprios), mesmo proxy reverso externo, ver Etapa 6
 ```
 
 ## Como usar esta documentação
@@ -58,6 +61,7 @@ só precisa operar o dia a dia, vá direto para
 | 3 | [Federação com o Active Directory](03-federacao-ad.md) | LDAPS, `configure_ldap.sh`, sincronização de usuários |
 | 4 | [Integração dos Sistemas Piloto](04-integracao-sistemas.md) | Django, GLPI, Zabbix (SSO/SLO) |
 | 5 | [Go-Live e Operação Contínua](05-golive-operacao.md) | MFA, brute force, backup, `manage.sh`, Portainer, menu automático |
+| 6 | [Vaultwarden (Cofre de Senhas)](06-vaultwarden.md) | Segunda stack isolada, SSO com o Keycloak ligado por padrão, autorregistro desligado, backup dedicado |
 | — | [Referência de Scripts](scripts-referencia.md) | Todos os scripts do repositório, flags e exemplos |
 | — | [Exemplo de vhost Nginx (proxy externo)](exemplo-nginx-proxy-externo.conf) | Config de referência para o servidor de proxy reverso da prefeitura — inclui o troubleshooting de erro 502 |
 | — | [Tema Visual (logo e cores)](tema-visual.md) | White-label da tela de login com a identidade visual da prefeitura |
@@ -73,4 +77,5 @@ só precisa operar o dia a dia, vá direto para
 - [ ] Etapa 3 — Federação com o Active Directory
 - [ ] Etapa 4 — Integração dos Sistemas Piloto
 - [ ] Etapa 5 — Go-Live e Operação Contínua
+- [ ] Etapa 6 — Vaultwarden (Cofre de Senhas)
 - [ ] Verificação End-to-End concluída
