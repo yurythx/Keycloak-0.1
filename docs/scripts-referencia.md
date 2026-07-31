@@ -20,6 +20,9 @@ entrega tudo executável.
 | [`scripts/session_stats.sh`](#scriptssession_statssh) | Sessões ativas (API Admin) | Monitoramento, sob demanda ou via Zabbix |
 | [`scripts/diagnose_502.sh`](#scriptsdiagnose_502sh) | Diagnóstico de 502 no proxy externo | Troubleshooting, sob demanda |
 | [`scripts/vaultwarden_create_user.py`](#scriptsvaultwarden_create_userpy) | Cria conta no Vaultwarden com senha pré-definida | Etapa 6, provisionamento inicial |
+| [`scripts/configure_vaultwarden_sso.sh`](#scriptsconfigure_vaultwarden_ssosh) | Assistente de integração SSO Vaultwarden ↔ Keycloak | Etapa 6, uma vez (ou ao girar o secret) |
+| [`scripts/check_vaultwarden_sso.sh`](#scriptscheck_vaultwarden_ssosh) | Verifica se a integração SSO está funcionando de verdade | Etapa 6, sob demanda |
+| [`scripts/check_ad_status.sh`](#scriptscheck_ad_statussh) | Verifica a federação com o AD com um teste de conexão real | Etapa 3, sob demanda |
 
 ---
 
@@ -122,9 +125,13 @@ quando o deploy terminou):
 | 6 | Backup agora | Roda `scripts/backup.sh` |
 | 7 | Testar restauração de backup | Roda `scripts/restore_test.sh` |
 | 8 | Configurar LDAP/AD | Roda `scripts/configure_ldap.sh` |
-| 9 | Uso de recursos | `docker stats` **ao vivo** (estilo `htop`) de todos os contêineres — atualiza continuamente até `Ctrl+C` |
-| 10 | Shell num contêiner | Abre um shell interativo (`bash`, com fallback pra `sh`) — útil para debug pontual |
-| 11 | Atualizar esta tela | Redesenha o painel sem executar nada |
+| 9 | Verificar integração com o AD | Roda `scripts/check_ad_status.sh` — configuração atual + teste de bind LDAP síncrono de verdade + contagem de usuários/grupos |
+| 10 | Configurar SSO do Vaultwarden | Roda `scripts/configure_vaultwarden_sso.sh` — assistente que cria/atualiza o client no Keycloak, busca o secret automaticamente e atualiza o `.env` |
+| 11 | Verificar integração Vaultwarden ↔ Keycloak | Roda `scripts/check_vaultwarden_sso.sh` — configuração, contêineres e o fluxo real de redirect OIDC/PKCE |
+| 12 | Uso de recursos | `docker stats` **ao vivo** (estilo `htop`) de todos os contêineres — atualiza continuamente até `Ctrl+C` |
+| 13 | Shell num contêiner | Abre um shell interativo (`bash`, com fallback pra `sh`) — útil para debug pontual |
+| 14 | Diagnosticar erro 502 | Roda `scripts/diagnose_502.sh`, opcionalmente pedindo o IP do proxy externo |
+| 15 | Atualizar esta tela | Redesenha o painel sem executar nada |
 | 0 | Sair | Fecha o menu (a stack continua rodando normalmente) |
 
 Só para uso interativo num terminal de verdade (não roda em CI/automação
@@ -481,3 +488,84 @@ na sequência, login real conferido (token de acesso emitido) com a
 senha informada — inclusive depois de `SIGNUPS_ALLOWED` voltar pra
 `false` (a restrição só afeta registro de conta nova, não login de
 conta existente).
+
+---
+
+## `scripts/configure_vaultwarden_sso.sh`
+
+Assistente interativo pra terminar a integração SSO Vaultwarden ↔
+Keycloak (docs/06-vaultwarden.md#sso), no mesmo padrão do
+`configure_ldap.sh`: pergunta os dados (realm, client ID — Enter mantém
+o valor atual/padrão), cria ou atualiza o client OIDC no Keycloak via
+`kcadm.sh`, e por padrão **busca o client secret direto da API** em vez
+de pedir pra colar — elimina o erro mais comum desse processo (secret
+copiado errado). Se preferir colar um secret que já tem em mãos, o
+assistente pergunta antes de tentar buscar automaticamente.
+
+```bash
+./scripts/configure_vaultwarden_sso.sh
+./scripts/configure_vaultwarden_sso.sh --yes   # aceita os padroes/atuais sem perguntar
+```
+
+Ao final, grava o secret em `secrets/vw_sso_client_secret.txt` (permissão
+restrita, mesmo padrão dos outros segredos), atualiza
+`VAULTWARDEN_SSO_ENABLED`/`VAULTWARDEN_SSO_AUTHORITY`/`VAULTWARDEN_SSO_CLIENT_ID`
+no `.env`, recria o Vaultwarden, e mostra um painel com o redirect
+URI/web origin cadastrados no client — confira se batem com o que está
+no Keycloak caso o client já existisse de outra forma.
+
+Testado ao vivo: cria client novo, atualiza client existente (redirect
+URI mudou), busca o secret automaticamente, e o Vaultwarden sobe
+`healthy` com a config nova.
+
+---
+
+## `scripts/check_vaultwarden_sso.sh`
+
+Verifica se a integração SSO está **funcionando de verdade**, não só se
+a configuração parece certa: confere `.env`/secret, contêineres
+saudáveis, e por último faz o Vaultwarden **iniciar um login OIDC real**
+(com PKCE) e confirma que ele recebe de volta um redirect válido do
+Keycloak — o mesmo tipo de verificação manual feita durante o
+desenvolvimento desta stack, automatizada.
+
+```bash
+./scripts/check_vaultwarden_sso.sh
+```
+
+Detecta corretamente tanto configuração incompleta (SSO desligado,
+secret vazio) quanto o achado real documentado na Etapa 6: `issuer` do
+Keycloak não batendo com `VAULTWARDEN_SSO_AUTHORITY` (o Vaultwarden
+rejeita com HTTP 400 nesse caso, e o script mostra isso claramente em
+vez de reportar sucesso).
+
+---
+
+## `scripts/check_ad_status.sh`
+
+Verifica a federação com o AD com um **teste de conexão síncrono de
+verdade** — não só confere se o provider LDAP existe.
+
+```bash
+./scripts/check_ad_status.sh              # realm "prefeitura"
+./scripts/check_ad_status.sh outro-realm
+```
+
+Mostra a configuração atual (connection URL, vendor, bind DN, users DN —
+**sem** expor a senha de bind), confere o mapper de grupos, e testa a
+conexão via `testLDAPConnection` (`action=testAuthentication`) do
+próprio Keycloak — o mesmo endpoint que o botão "Test authentication" do
+Admin Console usa.
+
+> **Achado real construindo este script**: dar `trigger(Full|Changed)Sync`
+> e checar se o comando retornou sem erro **não prova que o AD está
+> alcançável** — esse endpoint só enfileira o sync e responde sucesso na
+> hora; o erro de conexão de verdade (host inalcançável, bind errado)
+> só aparece depois, de forma assíncrona, nos logs do Keycloak. Isso
+> gerava falso positivo ("conexão OK") mesmo contra um AD totalmente
+> inalcançável — reproduzido e corrigido antes deste script entrar no
+> repositório, usando `testLDAPConnection` (que responde de forma
+> síncrona) em vez de disparar um sync.
+
+Ao final, mostra quantos usuários/grupos existem no realm (via
+`users/count` da API Admin).

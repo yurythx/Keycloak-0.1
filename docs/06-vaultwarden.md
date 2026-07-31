@@ -143,10 +143,20 @@ por `SSO_AUTHORITY`/secret vazios (achado real testando esta stack).
 > habilitado pra pelo menos a conta admin (não crie ela via SSO), como
 > plano B se o Keycloak ficar fora do ar.
 
-**1. Criar o client no Keycloak** (realm `prefeitura` — ainda não
-existe? crie primeiro, ver [Etapa 2](02-configuracao-keycloak.md)).
-Via `kcadm.sh` (testado durante o desenvolvimento desta stack, roda
-dentro do contêiner `keycloak`):
+**Caminho mais fácil — assistente pelo `manage.sh`:**
+```bash
+./manage.sh
+# opção 10) Configurar SSO do Vaultwarden (client Keycloak)
+```
+Pergunta o realm e o client ID (com Enter pra manter o padrão), cria ou
+atualiza o client no Keycloak automaticamente, **busca o secret direto
+da API** (sem precisar copiar/colar — elimina o erro mais comum desse
+processo), grava em `secrets/vw_sso_client_secret.txt`, atualiza o
+`.env` e já recria o Vaultwarden. Ao final mostra o redirect URI/web
+origin cadastrados, pra conferência.
+
+**Ou manualmente**, via `kcadm.sh` (realm `prefeitura` — ainda não
+existe? crie primeiro, ver [Etapa 2](02-configuracao-keycloak.md)):
 ```bash
 docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials \
     --server http://localhost:8080 --realm master --user kc_admin \
@@ -171,9 +181,7 @@ Ou pelo Admin Console: realm `prefeitura` → Clients → Create client →
 mesmos valores acima (Client authentication **On**, Standard flow
 **On**, Direct access grants pode desligar, redirect URI **exato**, sem
 barra a mais/a menos — o Keycloak rejeita a autorização se não bater
-com o que está cadastrado).
-
-**2. Colocar o secret** (**nunca no `.env`**):
+com o que está cadastrado). Depois, cole o secret manualmente:
 ```bash
 echo "<CLIENT_SECRET_DO_PASSO_ANTERIOR>" > secrets/vw_sso_client_secret.txt
 docker compose up -d --force-recreate vaultwarden
@@ -182,15 +190,28 @@ As demais variáveis (`VAULTWARDEN_SSO_ENABLED`, `VAULTWARDEN_SSO_AUTHORITY`,
 `VAULTWARDEN_SSO_CLIENT_ID`) já vêm certas no `.env` gerado pelo
 `setup.sh` — só falta esse secret pra completar.
 
-**3. Testar**: acesse `https://cofre.rondonopolis.mt.gov.br`, opção
+> **Achado real**: `VAULTWARDEN_SSO_AUTHORITY` precisa apontar pro
+> **mesmo domínio/esquema** configurado em `KC_HOSTNAME` do Keycloak,
+> exatamente. O Vaultwarden valida o `issuer` retornado pelo documento
+> de descoberta OIDC contra a URL que ele usou pra buscar esse
+> documento — se forem diferentes (ex.: `KC_HOSTNAME` público mas
+> `SSO_AUTHORITY` apontando pra um atalho de rede interna), ele rejeita
+> com `unexpected issuer URI` e devolve 400, mesmo com client/secret
+> certos. Testado e confirmado durante o desenvolvimento desta stack.
+
+**Testar**: acesse `https://cofre.rondonopolis.mt.gov.br`, opção
 "Enterprise Single Sign-On" na tela de login, deve redirecionar pro
-Keycloak, autenticar, e voltar logado no Vaultwarden.
+Keycloak, autenticar, e voltar logado no Vaultwarden. Ou, mais rápido,
+`./manage.sh` → opção 11 (Verificar integração Vaultwarden ↔ Keycloak) —
+confirma configuração, contêineres saudáveis, e o fluxo real de redirect
+com PKCE, sem precisar abrir o navegador.
 
 > Validado durante o desenvolvimento desta stack: o fluxo completo
 > (Vaultwarden → redirect pro Keycloak com `client_id`/`redirect_uri`/PKCE
 > corretos → login → código de autorização entregue de volta) funciona
-> ponta a ponta contra um client OIDC de teste. Ainda assim, teste de
-> novo depois de criar o client de produção — o secret e o
+> ponta a ponta contra um client OIDC de teste, incluindo o cenário de
+> falha (issuer não batendo) sendo corretamente rejeitado. Ainda assim,
+> teste de novo depois de criar o client de produção — o secret e o
 > `VAULTWARDEN_DOMAIN` reais são únicos desse ambiente.
 
 ### 6. Backup e restore

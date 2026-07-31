@@ -160,6 +160,35 @@ menu_ldap() {
     pause
 }
 
+menu_check_ad() {
+    if [ -x scripts/check_ad_status.sh ]; then
+        local realm
+        realm="$(ask "Realm do Keycloak" "prefeitura")"
+        ./scripts/check_ad_status.sh "$realm" || log_err "check_ad_status.sh terminou com erro - veja a saida acima"
+    else
+        log_err "scripts/check_ad_status.sh nao encontrado ou sem permissao de execucao"
+    fi
+    pause
+}
+
+menu_vaultwarden_sso() {
+    if [ -x scripts/configure_vaultwarden_sso.sh ]; then
+        ./scripts/configure_vaultwarden_sso.sh || log_err "configure_vaultwarden_sso.sh terminou com erro - veja a saida acima"
+    else
+        log_err "scripts/configure_vaultwarden_sso.sh nao encontrado ou sem permissao de execucao"
+    fi
+    pause
+}
+
+menu_check_vaultwarden_sso() {
+    if [ -x scripts/check_vaultwarden_sso.sh ]; then
+        ./scripts/check_vaultwarden_sso.sh || log_err "check_vaultwarden_sso.sh terminou com erro - veja a saida acima"
+    else
+        log_err "scripts/check_vaultwarden_sso.sh nao encontrado ou sem permissao de execucao"
+    fi
+    pause
+}
+
 menu_diagnose_502() {
     if [ -x scripts/diagnose_502.sh ]; then
         local proxy_ip
@@ -207,10 +236,13 @@ show_menu() {
     printf "   6) Backup agora\n"
     printf "   7) Testar restauracao de backup\n"
     printf "   8) Configurar LDAP/AD\n"
-    printf "   9) Uso de recursos (CPU/RAM)\n"
-    printf "  10) Shell num contêiner\n"
-    printf "  11) Diagnosticar erro 502 (proxy externo)\n"
-    printf "  12) Atualizar esta tela\n"
+    printf "   9) Verificar integracao com o AD\n"
+    printf "  10) Configurar SSO do Vaultwarden (client Keycloak)\n"
+    printf "  11) Verificar integracao Vaultwarden <-> Keycloak\n"
+    printf "  12) Uso de recursos (CPU/RAM)\n"
+    printf "  13) Shell num contêiner\n"
+    printf "  14) Diagnosticar erro 502 (proxy externo)\n"
+    printf "  15) Atualizar esta tela\n"
     printf "   0) Sair\n"
 }
 
@@ -219,7 +251,7 @@ while true; do
     print_header "PAINEL DE GERENCIAMENTO"
     print_services_panel
     show_menu
-    CHOICE="$(ask "Escolha uma opcao" "12")"
+    CHOICE="$(ask "Escolha uma opcao" "15")"
     case "$CHOICE" in
         1) menu_logs ;;
         2) menu_restart ;;
@@ -229,10 +261,13 @@ while true; do
         6) menu_backup ;;
         7) menu_restore_test ;;
         8) menu_ldap ;;
-        9) menu_stats ;;
-        10) menu_shell ;;
-        11) menu_diagnose_502 ;;
-        12) : ;;
+        9) menu_check_ad ;;
+        10) menu_vaultwarden_sso ;;
+        11) menu_check_vaultwarden_sso ;;
+        12) menu_stats ;;
+        13) menu_shell ;;
+        14) menu_diagnose_502 ;;
+        15) : ;;
         0) printf "\n%sAte mais.%s\n\n" "${C_BGREEN}" "${C_RESET}"; exit 0 ;;
         *) log_err "Opcao invalida"; pause ;;
     esac
