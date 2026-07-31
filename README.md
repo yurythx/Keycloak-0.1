@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:000000,50:1F0D0D,100:FF4500&height=220&section=header&text=%F0%9F%94%90%20Keycloak%20SSO%20%2B%20Vault&fontSize=42&fontColor=FF4500&animation=fadeIn&fontAlignY=35&desc=Autentica%C3%A7%C3%A3o%20%C3%9Anica%20%26%20Cofre%20de%20Segredos%20da%20Prefeitura&descSize=17&descAlignY=55&descColor=FF4500" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:000000,50:1F0D0D,100:FF4500&height=220&section=header&text=%F0%9F%94%90%20Keycloak%20SSO%20%2B%20Vault&fontSize=42&fontColor=FF4500&animation=fadeIn&fontAlignY=35&desc=Autentica%C3%A7%C3%A3o%20%C3%9Anica%20%26%20Cofre%20de%20Segredos%20da%20Institui%C3%A7%C3%A3o&descSize=17&descAlignY=55&descColor=FF4500" width="100%"/>
 
 <a href="https://github.com/yurythx/Keycloak-0.1/actions/workflows/ci.yml">
   <img src="https://github.com/yurythx/Keycloak-0.1/actions/workflows/ci.yml/badge.svg" alt="CI"/>
@@ -21,24 +21,24 @@
 
 ---
 
-## Uma identidade só, para toda a prefeitura
+## Uma identidade só, para toda a instituição
 
-A maioria das prefeituras brasileiras opera identidade de forma fragmentada:
-cada sistema (intranet, GLPI, Zabbix, e-mail) com seu próprio usuário e
-senha, credenciais de infraestrutura circulando em planilha ou papel, e
-zero trilha de auditoria de quem acessou o quê. A alternativa de mercado
-— IAM comercial (Okta, Entra ID Premium, PingFederate) — custa licença
-por usuário e mantém os dados da prefeitura fora da própria
-infraestrutura.
+A maioria das instituições públicas brasileiras opera identidade de forma
+fragmentada: cada sistema (intranet, GLPI, Zabbix, e-mail) com seu
+próprio usuário e senha, credenciais de infraestrutura circulando em
+planilha ou papel, e zero trilha de auditoria de quem acessou o quê. A
+alternativa de mercado — IAM comercial (Okta, Entra ID Premium,
+PingFederate) — custa licença por usuário e mantém os dados da
+instituição fora da própria infraestrutura.
 
 Esta stack resolve os dois problemas com **software livre, auditável e
-rodando inteiramente dentro da rede da prefeitura**: o [Keycloak](https://www.keycloak.org/)
+rodando inteiramente dentro da rede da instituição**: o [Keycloak](https://www.keycloak.org/)
 federa **todos** os sistemas a uma única identidade vinda do **Active
 Directory** (LDAPS), e o **Vaultwarden** — compatível com o protocolo
 Bitwarden — dá à equipe de TI um cofre de credenciais de infraestrutura
 que **autentica com essa mesma identidade**, via OpenID Connect. Uma
 conta, dois sistemas críticos, zero senha duplicada, zero custo de
-licença, zero dado saindo do datacenter da prefeitura.
+licença, zero dado saindo do datacenter da instituição.
 
 ```bash
 git clone https://github.com/yurythx/Keycloak-0.1.git /opt/keycloak-stack
@@ -50,11 +50,11 @@ cd /opt/keycloak-stack
 ## Arquitetura
 
 ```
-                      Internet / rede da prefeitura
+                      Internet / rede da instituição
                                 │
                       ┌──────────────────────┐
-                      │  Servidor web da      │  ← já existe na prefeitura,
-                      │  prefeitura (fora     │     FORA desta stack: TLS,
+                      │  Servidor web da      │  ← já existe na instituição,
+                      │  instituição (fora    │     FORA desta stack: TLS,
                       │  desta stack)         │     redirect HTTP→HTTPS e
                       │  TLS + proxy reverso  │     balanceamento de carga
                       │  + balanceamento      │
@@ -103,7 +103,7 @@ antes de entrar na documentação — não é um diagrama aspiracional.
 |---|---|---|
 | 🕸️ **Rede** | Bancos de dados | `internal: true` — Postgres do Keycloak e do Vaultwarden sem rota de saída, nem o host alcança |
 | 🔑 **Segredos** | Senhas e tokens | Docker secrets com permissão restrita, **zero** texto plano em `.env` versionado |
-| 🚪 **Borda** | Portas publicadas | Só o necessário exposto ao proxy da prefeitura, restrito por firewall ao IP dele |
+| 🚪 **Borda** | Portas publicadas | Só o necessário exposto ao proxy da instituição, restrito por firewall ao IP dele |
 | 🙅 **Cadastro** | Contas no cofre | Autorregistro **desligado**; contas só via admin ou convite, sem depender de SMTP |
 | 🪪 **Identidade** | Login | SSO único via Keycloak (federado ao AD) — sem senha duplicada entre sistemas |
 | 🩹 **Supply chain** | Imagem publicada | Build fora da VM, scan de vulnerabilidades (Trivy) antes do push pro registry |
@@ -126,7 +126,7 @@ vezes:
 - **Autorregistro aberto por padrão no Vaultwarden** — achado numa
   revisão de segurança formal (multi-agente, com filtragem de falsos
   positivos); sem a correção, qualquer pessoa alcançando a URL pública
-  criava conta própria no cofre da prefeitura.
+  criava conta própria no cofre da instituição.
 - **Backup cobria só o banco do Keycloak** — o banco do Vaultwarden e o
   volume com a chave RSA da instância não entravam no backup. Corrigido
   e testado: os dois bancos e o volume, com drill de restauração real.
@@ -154,8 +154,8 @@ um build local que "funcionou aqui".
 | | |
 |---|---|
 | 🟢 **Console de operação** | `./manage.sh`, estilo TrueNAS: logs, reiniciar, backup, restore-drill, uso de recursos ao vivo (`docker stats`), shell no contêiner. |
-| 🟢 **Identidade visual** | Tema customizado do Keycloak (`keycloak.v2`/PatternFly 5) com logo e cores da prefeitura — ver [`docs/tema-visual.md`](docs/tema-visual.md). |
-| 🟢 **TLS via infraestrutura existente** | O Keycloak e o Vaultwarden publicam só HTTP puro em portas não padrão do host — TLS, redirecionamento e balanceamento ficam com o servidor web/proxy reverso que a prefeitura já opera, sem duplicar essa camada dentro da stack. |
+| 🟢 **Identidade visual** | Tema customizado do Keycloak (`keycloak.v2`/PatternFly 5) com logo e cores da instituição — ver [`docs/tema-visual.md`](docs/tema-visual.md). |
+| 🟢 **TLS via infraestrutura existente** | O Keycloak e o Vaultwarden publicam só HTTP puro em portas não padrão do host — TLS, redirecionamento e balanceamento ficam com o servidor web/proxy reverso que a instituição já opera, sem duplicar essa camada dentro da stack. |
 | 🟢 **Imagem travável** | `KEYCLOAK_IMAGE_TAG` pode ser fixado num `sha-xxxxxxx` específico em produção — reprodutibilidade em vez de `latest` flutuante. |
 
 ## Documentação completa
