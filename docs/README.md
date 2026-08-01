@@ -62,6 +62,7 @@ só precisa operar o dia a dia, vá direto para
 | 4 | [Integração dos Sistemas Piloto](04-integracao-sistemas.md) | Django, GLPI, Zabbix (SSO/SLO) |
 | 5 | [Go-Live e Operação Contínua](05-golive-operacao.md) | MFA, brute force, backup, `manage.sh`, Portainer, menu automático |
 | 6 | [Vaultwarden (Cofre de Senhas)](06-vaultwarden.md) | Segunda stack isolada, SSO com o Keycloak ligado por padrão, autorregistro desligado, backup dedicado |
+| 7 | [Integração GLPI ↔ Keycloak (SSO)](07-integracao-glpi.md) | Implementação real (plugin, client, bugs corrigidos) — roteiro pra replicar em outro ambiente/produção |
 | — | [Referência de Scripts](scripts-referencia.md) | Todos os scripts do repositório, flags e exemplos |
 | — | [Exemplo de vhost Nginx (proxy externo)](exemplo-nginx-proxy-externo.conf) | Config de referência para o servidor de proxy reverso da prefeitura — inclui o troubleshooting de erro 502 |
 | — | [Tema Visual (logo e cores)](tema-visual.md) | White-label da tela de login com a identidade visual da prefeitura |
