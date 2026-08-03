@@ -155,11 +155,30 @@ chegando certo. Isso quebra o `RelayState`/ACS do SAML (o SP manda um
 já prevê pra isso:
 ```yaml
 # docker-compose.yml, environment: do zabbix-web
-ZBX_SSO_SETTINGS: '{"baseurl": "http://192.168.0.181:8085"}'
+ZBX_SSO_SETTINGS: ${ZBX_SSO_SETTINGS:-}
+```
+```bash
+# .env (NAO no docker-compose.yml direto - ver aviso abaixo)
+ZBX_SSO_SETTINGS={"baseurl": "http://192.168.0.181:8085"}
 ```
 ```bash
 docker compose up -d --force-recreate zabbix-web
 ```
+
+> ⚠️ **Achado real (regressão já aconteceu uma vez)**: a pasta
+> `/home/dti/zabbix` é um **repositório git próprio**, mantido/commitado
+> por fora desta integração. Um commit lá (`"Bake SSO/SAML support into
+> docker-compose.yml via env var"`) trocou essa variável de um valor
+> fixo direto no `docker-compose.yml` pra uma referência `${ZBX_SSO_SETTINGS:-}`
+> com padrão vazio — e como ninguém tinha adicionado o valor no `.env`
+> ainda (não precisava antes, o valor estava fixo), um `git pull`
+> silenciosamente **apagou essa correção**, voltando o bug do
+> `redirect_uri` errado (sintoma: "Invalid redirect uri" no Keycloak).
+> **Sempre que o `docker-compose.yml` dessa pasta usar `${VAR:-default}`,
+> o valor real precisa estar no `.env`** (que é git-ignorado e
+> sobrevive a um `git pull`) — nunca só no `docker-compose.yml`
+> diretamente, ou some no próximo pull/refactor de quem mais mexe nesse
+> repositório.
 
 ## 4. Achados/bugs corrigidos
 

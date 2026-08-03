@@ -93,6 +93,17 @@ GF_SERVER_ROOT_URL=http://192.168.0.181:3030/
 > isso explicitamente de cara**, antes mesmo de testar — em vez de
 > esperar o sintoma de `redirect_uri` errado aparecer de novo.
 
+> ⚠️ **Atenção pra quem replicar**: `/home/dti/zabbix` (onde o Grafana
+> desta integração roda, junto com o Zabbix) é um **repositório git
+> próprio**, mantido/commitado por fora desta integração. Já aconteceu
+> de um commit lá reverter uma correção equivalente feita direto no
+> `docker-compose.yml` sem o valor correspondente estar no `.env` (ver
+> [docs/10 §3.3](10-integracao-zabbix.md#33-baseurl--nginx-interno-usa-a-porta-errada)
+> pro caso real). **Todo valor de SSO (`GF_SERVER_ROOT_URL`, secret do
+> client, `ROLE_ATTRIBUTE_PATH`) precisa estar no `.env`** (git-ignorado,
+> sobrevive a um `git pull`), nunca só hardcoded direto no
+> `docker-compose.yml`.
+
 ## 4. Provisionamento automático por grupo do AD
 
 Ao contrário do Zabbix (que tem uma estrutura de "user directory" +
