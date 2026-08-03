@@ -14,17 +14,24 @@
 
 :root {
   /* ---- Logo (variaveis nativas do keycloak.v2 - ja existem, so' trocamos
-     o valor). Ajuste height/width para a proporcao real do seu logo.png. */
+     o valor). Dimensoes calculadas pela proporcao real do logo.png
+     (1549x595px = razao ~2.603) - achado real: a logo oficial e' um PNG
+     com fundo TRANSPARENTE mas desenho em branco solido (brasao + texto),
+     por isso precisa de um fundo colorido atras dela (ver
+     "div.kc-logo-text" abaixo) - sem isso fica branco sobre o card branco
+     do keycloak.v2, invisivel. */
   --keycloak-logo-url: url("../img/logo.png");
-  --keycloak-logo-height: 60px;
-  --keycloak-logo-width: 220px;
+  --keycloak-logo-height: 85px;
+  --keycloak-logo-width: 221px;
 
-  /* ---- Cores institucionais da Prefeitura -------------------------------
-     TROQUE AQUI pelos tons oficiais da identidade visual (hex/RGB). Os
-     valores abaixo sao placeholder - so' servem pra provar que o mecanismo
-     funciona, nao sao as cores reais da prefeitura. */
-  --prefeitura-primary: #0056b3;
-  --prefeitura-primary-hover: #003d82;
+  /* ---- Cores institucionais da Prefeitura de Rondonopolis --------------
+     Extraidas direto do CSS de producao do site oficial
+     (rondonopolis.mt.gov.br/static/core/project/css/base_v2*.css,
+     variaveis --c-blue/--c-dark-blue - confirmado que --c-blue e' a cor
+     de fundo real do cabecalho/navbar do site, e --c-dark-blue o hover),
+     nao inventadas. */
+  --prefeitura-primary: #0571EE;
+  --prefeitura-primary-hover: #0038A7;
   --prefeitura-on-primary: #ffffff;
 
   /* ---- Botao primario (Entrar, etc.) - variaveis nativas do PatternFly 5.
@@ -42,6 +49,19 @@
 /* O texto "Keycloak" (div.kc-logo-text span) ja vem oculto por padrao no
    keycloak.v2 - so a imagem de --keycloak-logo-url aparece. Nada a fazer
    aqui alem de ja termos trocado a variavel acima. */
+
+/* Fundo colorido atras da logo (branca, transparente) - vira um "badge"
+   arredondado na cor institucional, padrao comum em portais de governo.
+   `background-origin: content-box` faz o `background-size: contain`
+   (definido no keycloak.v2/styles.css) calcular só' dentro da área de
+   conteúdo, sem contar o padding - é o padding que sobra como margem
+   colorida ao redor da logo. */
+div.kc-logo-text {
+  background-color: var(--prefeitura-primary);
+  background-origin: content-box;
+  padding: 18px 26px;
+  border-radius: 10px;
+}
 
 /* Links dentro do card de login (ex.: "Esqueceu a senha?", "Registrar-se") */
 .pf-v5-c-login__main a {
