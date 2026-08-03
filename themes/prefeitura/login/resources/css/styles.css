@@ -13,13 +13,23 @@
  */
 
 :root {
-  /* ---- Logo (variaveis nativas do keycloak.v2 - ja existem, so' trocamos
-     o valor). Dimensoes calculadas pela proporcao real do logo.png
+  /* ---- Logo. Dimensoes calculadas pela proporcao real do logo.png
      (1549x595px = razao ~2.603) - achado real: a logo oficial e' um PNG
      com fundo TRANSPARENTE mas desenho em branco solido (brasao + texto),
-     por isso precisa de um fundo colorido atras dela (ver
-     "div.kc-logo-text" abaixo) - sem isso fica branco sobre o card branco
-     do keycloak.v2, invisivel. */
+     por isso precisa de um fundo colorido atras dela (ver "#kc-header-wrapper"
+     abaixo) - sem isso fica branco sobre o card branco do keycloak.v2,
+     invisivel.
+
+     ACHADO REAL (corrigido depois de testar ao vivo): a variavel
+     --keycloak-logo-url e a classe "div.kc-logo-text" existem no
+     styles.css do keycloak.v2, mas NAO sao usadas por nenhum template
+     .ftl no Keycloak 26.7.0 - sao vestigio de versao antiga, mortas no
+     HTML renderizado de verdade. Confirmado extraindo template.ftl de
+     dentro do jar de temas: o elemento real do cabecalho/logo e'
+     "#kc-header-wrapper" (classe .pf-v5-c-brand), que por padrao so'
+     mostra o nome do realm como texto - e' ele que precisa do
+     background-image, nao "div.kc-logo-text". Ver docs/tema-visual.md
+     para o relato completo desse engano. */
   --keycloak-logo-url: url("../img/logo.png");
   --keycloak-logo-height: 85px;
   --keycloak-logo-width: 221px;
@@ -46,21 +56,32 @@
   --pf-v5-c-button--m-primary--focus--Color: var(--prefeitura-on-primary);
 }
 
-/* O texto "Keycloak" (div.kc-logo-text span) ja vem oculto por padrao no
-   keycloak.v2 - so a imagem de --keycloak-logo-url aparece. Nada a fazer
-   aqui alem de ja termos trocado a variavel acima. */
-
-/* Fundo colorido atras da logo (branca, transparente) - vira um "badge"
-   arredondado na cor institucional, padrao comum em portais de governo.
-   `background-origin: content-box` faz o `background-size: contain`
-   (definido no keycloak.v2/styles.css) calcular só' dentro da área de
-   conteúdo, sem contar o padding - é o padding que sobra como margem
-   colorida ao redor da logo. */
-div.kc-logo-text {
-  background-color: var(--prefeitura-primary);
+/* Cabecalho/logo de verdade (ver nota no :root acima sobre por que nao e'
+   "div.kc-logo-text"). Por padrao "#kc-header-wrapper" so' mostra o nome
+   do realm como texto grande - substituimos pela imagem da logo com um
+   fundo colorido em formato de "badge" arredondado (padrao comum em
+   portais de governo), e escondemos o texto de forma acessivel (ainda
+   legivel por leitor de tela, so' nao aparece visualmente). */
+#kc-header-wrapper {
+  background-image: var(--keycloak-logo-url);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
   background-origin: content-box;
+  background-color: var(--prefeitura-primary);
+  height: var(--keycloak-logo-height);
+  width: var(--keycloak-logo-width);
+  max-width: 100%;
+  margin: 0 auto;
   padding: 18px 26px;
   border-radius: 10px;
+  box-sizing: content-box;
+
+  /* Esconde o texto do nome do realm visualmente, mantendo acessivel */
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  overflow: hidden;
 }
 
 /* Links dentro do card de login (ex.: "Esqueceu a senha?", "Registrar-se") */
