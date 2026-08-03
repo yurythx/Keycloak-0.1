@@ -66,6 +66,7 @@ só precisa operar o dia a dia, vá direto para
 | 8 | [Federação com o AD: Ajustes Reais de Produção](08-federacao-ad-producao.md) | Realm certo, e-mail via `userPrincipalName`, `emailVerified`, sync de grupos (682), achado do grupo `Administrators` amplo demais |
 | 9 | [SSO do Vaultwarden: Ajustes Reais de Produção](09-vaultwarden-sso-producao.md) | Depuração real: realm errado, e-mail ausente, access token de 5min quebrando a sessão |
 | 10 | [Integração Zabbix ↔ Keycloak (SSO via SAML)](10-integracao-zabbix.md) | Client SAML, provisionamento automático por grupo do AD, bugs reais corrigidos (baseurl, atributo duplicado, JIT) |
+| 11 | [Integração Grafana ↔ Keycloak (SSO via OIDC)](11-integracao-grafana.md) | Client OIDC, mapeamento de grupo→papel via JMESPath, bug do `GF_SERVER_ROOT_URL` |
 | — | [Referência de Scripts](scripts-referencia.md) | Todos os scripts do repositório, flags e exemplos |
 | — | [Exemplo de vhost Nginx (proxy externo)](exemplo-nginx-proxy-externo.conf) | Config de referência para o servidor de proxy reverso da prefeitura — inclui o troubleshooting de erro 502 |
 | — | [Tema Visual (logo e cores)](tema-visual.md) | White-label da tela de login com a identidade visual da prefeitura |
