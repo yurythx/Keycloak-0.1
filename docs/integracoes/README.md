@@ -23,6 +23,7 @@ pasta — a tabela abaixo marca qual é qual:
 | Grafana | ✅ Testada | [grafana.md](grafana.md) | OIDC | Mapeamento de grupo→papel via JMESPath, `GF_SERVER_ROOT_URL` |
 | Intranet (Django) | 📋 Guia | [intranet-django.md](intranet-django.md) | OIDC | `mozilla-django-oidc`, Authorization Code Flow (client confidencial) |
 | Protocolo Digital (React + Node.js) | 📋 Guia | [protocolo-digital.md](protocolo-digital.md) | OIDC | `keycloak-js` (SPA, PKCE) + validação de JWT via JWKS no backend |
+| Balcão de Empregos (Django) | 📋 Guia | [balcao-empregos.md](balcao-empregos.md) | OIDC | SSO só na área administrativa — site público de candidatos fica fora do Keycloak |
 
 ## Padrões que se repetem entre integrações
 
@@ -55,3 +56,10 @@ próximas, em vez de esperar o mesmo sintoma aparecer de novo:
    desatualizado por até 30 dias pra quem acessa pelo domínio público,
    mesmo com a origem já corrigida. Testar direto na origem (túnel SSH,
    `curl` local) antes de assumir que uma correção "não funcionou".
+7. **Sistema de uso público (não só interno)**: antes de aplicar SSO
+   no app inteiro, confirmar se ele tem uma área aberta pro cidadão
+   (que não tem conta no AD) — nesse caso o Keycloak protege só a área
+   administrativa/staff, o login público continua com autenticação
+   própria da aplicação, separada. Ver
+   [balcao-empregos.md §0](balcao-empregos.md#0-⚠️-antes-de-tudo-sso-cobre-só-a-área-administrativa-não-o-site-público)
+   pra esse desenho completo.
