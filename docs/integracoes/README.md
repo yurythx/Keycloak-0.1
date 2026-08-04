@@ -24,6 +24,7 @@ pasta — a tabela abaixo marca qual é qual:
 | Intranet (Django) | 📋 Guia | [intranet-django.md](intranet-django.md) | OIDC | `mozilla-django-oidc`, Authorization Code Flow (client confidencial) |
 | Protocolo Digital (React + Node.js) | 📋 Guia | [protocolo-digital.md](protocolo-digital.md) | OIDC | `keycloak-js` (SPA, PKCE) + validação de JWT via JWKS no backend |
 | Balcão de Empregos (Django) | 📋 Guia | [balcao-empregos.md](balcao-empregos.md) | OIDC | SSO só na área administrativa — site público de candidatos fica fora do Keycloak |
+| Papermoon (DRF + Next.js) | 📋 Guia | [papermoon.md](papermoon.md) | OIDC | `next-auth`/Auth.js (client confidencial, diferente do Protocolo Digital) + classe de autenticação DRF via JWKS |
 
 ## Padrões que se repetem entre integrações
 
