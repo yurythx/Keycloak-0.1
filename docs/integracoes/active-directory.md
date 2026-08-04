@@ -1,6 +1,6 @@
-# Etapa 8 — Federação com o AD: Ajustes Reais de Produção
+# Federação com o AD: Ajustes Reais de Produção
 
-[← Etapa 7](07-integracao-glpi.md) · [Índice](README.md)
+[← Índice de Integrações](README.md) · [Documentação Geral](../README.md)
 
 `docs/03-federacao-ad.md` descreve o **plano original** (LDAPS na porta
 636, Users/Groups DN organizados em OUs específicas, tudo criado do zero
@@ -286,7 +286,7 @@ tipo `Governo Administrativo`, `Procuradoria Administrativa`).
 Essa informação já está disponível via sincronização (seção 4) e pode
 ser usada por qualquer sistema integrado (claim `groups` no token) pra
 segmentar acesso por secretaria — ver limitação equivalente documentada
-em [docs/07-integracao-glpi.md](07-integracao-glpi.md#7-limitações-conhecidas-não-implementado)
+em [glpi.md](glpi.md#7-limitações-conhecidas-não-implementado)
 sobre o GLPI ainda não usar essa informação.
 
 ## 8. Lacuna conhecida: sem `secrets/ldap_bind_password.txt`

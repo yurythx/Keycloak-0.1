@@ -177,7 +177,7 @@ docker exec keycloak_server sh -c '
 ```
 
 > Aplique no realm **`Prefeitura`** (maiúsculo — o realm real de
-> produção, ver [docs/08-federacao-ad-producao.md §1](08-federacao-ad-producao.md#1-o-que-a-federação-real-é-diferente-do-plano)
+> produção, ver [docs/integracoes/active-directory.md §1](integracoes/active-directory.md#1-o-que-a-federação-real-é-diferente-do-plano)
 > sobre por que não é `prefeitura` minúsculo), nunca no `master` —
 > o `master` fica isolado, uso exclusivo administrativo (ver
 > [Etapa 2](02-configuracao-keycloak.md)).
@@ -213,7 +213,7 @@ docker exec keycloak_server sh -c '
 > Isso já mostra o CSS real e atualizado, mesmo que o proxy externo ainda
 > esteja servindo uma versão antiga pra usuários de verdade — o mesmo
 > tipo de bug de cache que já tínhamos achado antes no CSS do Vaultwarden
-> (ver [docs/09](09-vaultwarden-sso-producao.md)). **Esse cache do proxy
+> (ver [docs/integracoes/vaultwarden.md](integracoes/vaultwarden.md)). **Esse cache do proxy
 > ainda não foi resolvido/purgado** — enquanto isso, usuários acessando
 > pelo domínio público podem continuar vendo o tema antigo por até 30
 > dias após qualquer alteração.

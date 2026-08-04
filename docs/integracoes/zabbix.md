@@ -1,6 +1,6 @@
-# Etapa 10 — Integração Zabbix ↔ Keycloak (SSO via SAML)
+# Integração Zabbix ↔ Keycloak (SSO via SAML)
 
-[← Etapa 9](09-vaultwarden-sso-producao.md) · [Índice](README.md)
+[← Índice de Integrações](README.md) · [Documentação Geral](../README.md)
 
 Documenta a integração real entre o Keycloak (realm `Prefeitura`) e um
 Zabbix 7.0, feita no mesmo servidor de homologação do GLPI
@@ -87,7 +87,7 @@ A imagem oficial `zabbix/zabbix-web-nginx-pgsql` já vem com
 aceita um arquivo real em disco — não aceita o conteúdo do certificado
 direto por variável de ambiente). **Sem volume mount, o certificado some
 no próximo `--force-recreate`** — mesmo problema que já tínhamos visto
-com o plugin do GLPI ([docs/07-integracao-glpi.md §3.1](07-integracao-glpi.md#31-⚠️-antes-de-tudo-garanta-que-varwwwglpiplugins-é-um-volume-persistente)).
+com o plugin do GLPI ([glpi.md §3.1](glpi.md#31-⚠️-antes-de-tudo-garanta-que-varwwwglpiplugins-é-um-volume-persistente)).
 
 ```yaml
 # docker-compose.yml do Zabbix
@@ -278,7 +278,7 @@ curl -s -X POST .../api_jsonrpc.php -d '{
 
 ## 6. Testar sem senha real (fluxo SAML via impersonation)
 
-Mais trabalhoso que o equivalente OIDC ([docs/07 §5](07-integracao-glpi.md#5-testar-sem-precisar-de-senha-real-de-ninguém))
+Mais trabalhoso que o equivalente OIDC ([docs/07 §5](glpi.md#5-testar-sem-precisar-de-senha-real-de-ninguém))
 porque o SAML devolve um formulário HTML auto-submit, não um simples
 redirect com `code`. Passo a passo:
 

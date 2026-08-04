@@ -5,6 +5,15 @@
 Conecta os três sistemas piloto ao Keycloak como Identity Provider,
 validando SSO (login único) e SLO (logout único) de ponta a ponta.
 
+> **Este documento é o plano original** (nomes de client genéricos,
+> ainda não testado). As integrações **reais**, já testadas e com os
+> bugs de verdade documentados, ficam em
+> [`docs/integracoes/`](integracoes/README.md) — GLPI, Zabbix e
+> Grafana já têm implementação real lá; a Intranet Django e o
+> Protocolo Digital têm guias de implementação prontos, aguardando
+> serem testados. Use `docs/integracoes/` como referência de
+> verdade — este documento fica só como registro do plano inicial.
+
 ## Ações
 
 ### 1. Intranet Django (OIDC)

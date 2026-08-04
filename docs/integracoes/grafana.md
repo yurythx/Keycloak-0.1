@@ -1,6 +1,6 @@
-# Etapa 11 — Integração Grafana ↔ Keycloak (SSO via OIDC)
+# Integração Grafana ↔ Keycloak (SSO via OIDC)
 
-[← Etapa 10](10-integracao-zabbix.md) · [Índice](README.md)
+[← Índice de Integrações](README.md) · [Documentação Geral](../README.md)
 
 Documenta a integração real entre o Keycloak (realm `Prefeitura`) e um
 Grafana OSS (`grafana/grafana-oss`), rodando no mesmo servidor do
@@ -42,7 +42,7 @@ docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh create clients -r Pre
 
 > `access.token.lifespan=1800` aplicado **desde a criação** — é o bug
 > que já tínhamos achado com o Vaultwarden
-> ([docs/09 §4](09-vaultwarden-sso-producao.md#4-causa-raiz-3-access-token-expira-em-5-minutos-sem-refresh-funcional)),
+> ([docs/09 §4](vaultwarden.md#4-causa-raiz-3-access-token-expira-em-5-minutos-sem-refresh-funcional)),
 > aplicado preventivamente em vez de esperar o sintoma aparecer de
 > novo.
 
@@ -72,7 +72,7 @@ do container, `3000`) pra montar essa URL, ignorando a porta publicada
 externamente (`3030`). Isso não bate com o `redirectUris` cadastrado no
 client do Keycloak, e travaria com `invalid_redirect_uri` — exatamente
 o mesmo tipo de problema do `baseurl` do Zabbix
-([docs/10 §3.3 e §4.1](10-integracao-zabbix.md#33-baseurl--nginx-interno-usa-a-porta-errada)),
+([docs/10 §3.3 e §4.1](zabbix.md#33-baseurl--nginx-interno-usa-a-porta-errada)),
 causa raiz diferente (aqui é o Grafana que nunca soube sua própria URL
 pública, não um proxy interno), mesma categoria de sintoma.
 
@@ -98,7 +98,7 @@ GF_SERVER_ROOT_URL=http://192.168.0.181:3030/
 > próprio**, mantido/commitado por fora desta integração. Já aconteceu
 > de um commit lá reverter uma correção equivalente feita direto no
 > `docker-compose.yml` sem o valor correspondente estar no `.env` (ver
-> [docs/10 §3.3](10-integracao-zabbix.md#33-baseurl--nginx-interno-usa-a-porta-errada)
+> [docs/10 §3.3](zabbix.md#33-baseurl--nginx-interno-usa-a-porta-errada)
 > pro caso real). **Todo valor de SSO (`GF_SERVER_ROOT_URL`, secret do
 > client, `ROLE_ATTRIBUTE_PATH`) precisa estar no `.env`** (git-ignorado,
 > sobrevive a um `git pull`), nunca só hardcoded direto no
@@ -127,7 +127,7 @@ GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true
 | Qualquer outro | **Login recusado** (`ROLE_ATTRIBUTE_STRICT=true` — se a expressão não bater com nada, o Grafana rejeita o login em vez de criar conta sem papel definido) |
 
 Mesmos quatro grupos usados no mapeamento do Zabbix
-([docs/10 §5](10-integracao-zabbix.md#5-provisionamento-automático-jit--mapeamento-final))
+([docs/10 §5](zabbix.md#5-provisionamento-automático-jit--mapeamento-final))
 — reaproveitado de propósito, pra manter a régua de acesso consistente
 entre as ferramentas de infraestrutura.
 

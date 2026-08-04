@@ -1,6 +1,6 @@
-# Etapa 7 — Integração GLPI ↔ Keycloak (SSO)
+# Integração GLPI ↔ Keycloak (SSO)
 
-[← Etapa 6](06-vaultwarden.md) · [Índice](README.md)
+[← Índice de Integrações](README.md) · [Documentação Geral](../README.md)
 
 Documenta a integração **real**, testada e funcionando, entre o Keycloak
 desta stack (realm `Prefeitura`) e um GLPI via plugin OIDC — feita e
@@ -10,7 +10,7 @@ desta stack/repositório, mas na mesma rede). Este documento existe pra
 produção real em GLPI 10.0.3) sem precisar redescobrir os mesmos
 problemas.
 
-> **Diferença importante em relação à Etapa 4**: `docs/04-integracao-sistemas.md`
+> **Diferença importante em relação à Etapa 4**: [`docs/04-integracao-sistemas.md`](../04-integracao-sistemas.md)
 > descreve o plano original (client `glpi-chamados`, genérico). Este
 > documento descreve o que **realmente funcionou na prática**, com um
 > plugin, nome de client e configuração diferentes — use este aqui como
@@ -31,7 +31,7 @@ Cria/atualiza usuário local no GLPI          Autentica contra o AD (LDAPS)
 ```
 
 - **Client no Keycloak**: `glpi-sso`, no realm `Prefeitura` (não `prefeitura`
-  minúsculo — ver [docs/06-vaultwarden.md](06-vaultwarden.md) sobre por
+  minúsculo — ver [docs/06-vaultwarden.md](../06-vaultwarden.md) sobre por
   que o realm certo é o maiúsculo).
 - **Plugin no GLPI**: [`edgardmessias/glpi-singlesignon`](https://github.com/edgardmessias/glpi-singlesignon)
   (nome interno/diretório: `singlesignon`). Suporta múltiplos "providers"
@@ -230,7 +230,7 @@ a mesma tabela `glpi_plugin_singlesignon_providers`):
 Mapeamento de campos (tabela `glpi_plugin_singlesignon_providers_fields`,
 JSONPath sobre o `userinfo`/id_token) — o que usamos e funcionou com o
 AD desta prefeitura (que expõe `userPrincipalName`, não `mail`, ver
-[docs/06-vaultwarden.md](06-vaultwarden.md) sobre esse achado):
+[docs/06-vaultwarden.md](../06-vaultwarden.md) sobre esse achado):
 
 | Campo GLPI | JSONPath (em ordem de prioridade) |
 |---|---|

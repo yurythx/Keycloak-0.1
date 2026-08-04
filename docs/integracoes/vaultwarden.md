@@ -1,6 +1,6 @@
-# Etapa 9 — SSO do Vaultwarden: Ajustes Reais de Produção
+# SSO do Vaultwarden: Ajustes Reais de Produção
 
-[← Etapa 8](08-federacao-ad-producao.md) · [Índice](README.md)
+[← Índice de Integrações](README.md) · [Documentação Geral](../README.md)
 
 `docs/06-vaultwarden.md` cobre o provisionamento e a configuração
 planejada do SSO do Vaultwarden. Este documento registra especificamente
@@ -9,7 +9,7 @@ ponta — os bugs encontrados não eram de configuração óbvia, e vale
 registrar tanto pra não repetir o mesmo caminho quanto porque **os dois
 primeiros achados aqui (realm errado, e-mail ausente) são exatamente os
 mesmos que afetam qualquer outro client SSO deste Keycloak** (GLPI,
-futura intranet Django) — ver [docs/08-federacao-ad-producao.md](08-federacao-ad-producao.md).
+futura intranet Django) — ver [active-directory.md](active-directory.md).
 
 ## 1. Sintoma inicial: "integração OK" nos testes, mas login real falhava
 
@@ -22,7 +22,7 @@ isso não pegava os problemas abaixo.
 ## 2. Causa raiz #1: client apontando pro realm errado (vazio)
 
 Igual detalhado em
-[docs/08-federacao-ad-producao.md §1](08-federacao-ad-producao.md#1-o-que-a-federação-real-é-diferente-do-plano):
+[active-directory.md §1](active-directory.md#1-o-que-a-federação-real-é-diferente-do-plano):
 o `.env` tinha `VAULTWARDEN_SSO_AUTHORITY=.../realms/prefeitura`
 (minúsculo) — um realm **vazio**, criado pelos scripts deste repositório
 por padrão, sem nenhum usuário real do AD. O client `vaultwarden`
@@ -64,7 +64,7 @@ O realm `prefeitura` (minúsculo, vazio, sem uso) foi apagado depois —
 ```
 
 Coberto em detalhe em
-[docs/08-federacao-ad-producao.md §2-3](08-federacao-ad-producao.md#2-e-mail-mail-não-serve-usar-userprincipalname) —
+[active-directory.md §2-3](active-directory.md#2-e-mail-mail-não-serve-usar-userprincipalname) —
 resumo: `mail` do AD só estava preenchido pra 7,6% dos usuários, e
 `emailVerified` sempre vinha `false` (Vaultwarden exige e-mail
 verificado pra criar conta no primeiro login SSO). Resolvido trocando a
@@ -147,7 +147,7 @@ depender de pedir senha de AD pra ninguém nem esperar alguém testar:
 
 **Impersonation do Keycloak** — gera uma sessão válida como qualquer
 usuário usando só o token de admin (ver exemplo completo em
-[docs/07-integracao-glpi.md §5](07-integracao-glpi.md#5-testar-sem-precisar-de-senha-real-de-ninguém),
+[glpi.md §5](glpi.md#5-testar-sem-precisar-de-senha-real-de-ninguém),
 o mesmo processo serve pra qualquer client, só troca o `client_id`,
 `redirect_uri` e `client_secret`).
 
