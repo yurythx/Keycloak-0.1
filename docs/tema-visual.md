@@ -273,27 +273,48 @@ de locale.
    CSS — confirme em Realm Settings → Localization que `Enabled` está
    ligado e `Default locale` é `Portuguese (Brazilian)`.
 
-> ⚠️ **Achado real: o proxy reverso externo (192.168.0.218) cacheia os
-> arquivos CSS do tema por até 30 dias** (`cache-control: max-age=2592000`
-> confirmado no CSS servido via `sso.rondonopolis.mt.gov.br`). Testar
-> pelo domínio público **não é confiável** logo depois de editar o tema
-> — o `Ctrl+Shift+R` só limpa o cache do seu navegador, não o do proxy no
-> meio do caminho. Pra validar de verdade sem esperar (ou sem depender
-> de alguém purgar o cache lá), bata **direto no Keycloak, sem passar
-> pelo proxy**:
+> ⚠️ **Achado real (causa raiz confirmada, não só sintoma): o Keycloak
+> instrui 30 dias de cache nos arquivos estáticos de tema por padrão**
+> (`spi-theme-static-max-age`, default `2592000`s) — e o `<hash>` da URL
+> `/resources/<hash>/login/...` é derivado da **versão/build do Keycloak**,
+> não do conteúdo dos arquivos do tema (que são bind mount, editados por
+> fora da imagem). Ou seja: editar só o `styles.css` **nunca** muda esse
+> hash, então qualquer cache no caminho (proxy externo em
+> `sso.rondonopolis.mt.gov.br`, e até o navegador do usuário final) fica
+> livre pra servir a versão antiga por até 30 dias — confirmado ao vivo
+> comparando bypass direto vs. domínio público: os arquivos vinham
+> **diferentes**, com o header `cache-control: max-age=2592000` batendo
+> exatamente o default do Keycloak (ver histórico de troubleshooting desta
+> sessão). Não é bug do proxy — ele só está respeitando fielmente o que o
+> Keycloak manda.
+>
+> **Correção aplicada**: `docker-compose.yml` agora define
+> `KC_SPI_THEME_STATIC_MAX_AGE: "300"` (5 min) no serviço `keycloak` — bem
+> mais curto que o padrão, suficiente pra não travar iteração de tema por
+> dias, mas ainda cacheável o bastante pros arquivos vendor (PatternFly
+> etc.) que quase nunca mudam. **Isso só vale daqui pra frente**: exige
+> `docker compose up -d --force-recreate keycloak` pra pegar a variável
+> nova (mudança de `environment:`, não só de volume), e não limpa nada que
+> já esteja cacheado — se o CSS antigo já foi servido e cacheado por algum
+> cache no meio do caminho, ele só expira sozinho depois do TTL que já
+> tinha sido concedido antes dessa correção (até 30 dias contados a partir
+> de quando foi buscado, não de hoje).
+>
+> Pra validar sem depender de esperar cache nenhum expirar, bata **direto
+> no Keycloak, sem passar pelo proxy**:
 > ```bash
 > # tunel SSH local ate a porta do Keycloak na VM (127.0.0.1:18443 la' == aqui)
 > ssh -L 18443:127.0.0.1:18443 -N pmrkeycloak &
 > curl -s --compressed http://127.0.0.1:18443/resources/<hash>/login/prefeitura/css/styles.css \
 >     | grep 'prefeitura-primary\|kc-header-wrapper'
 > ```
-> Isso já mostra o CSS real e atualizado, mesmo que o proxy externo ainda
-> esteja servindo uma versão antiga pra usuários de verdade — o mesmo
-> tipo de bug de cache que já tínhamos achado antes no CSS do Vaultwarden
-> (ver [docs/integracoes/vaultwarden.md](integracoes/vaultwarden.md)). **Esse cache do proxy
-> ainda não foi resolvido/purgado** — enquanto isso, usuários acessando
-> pelo domínio público podem continuar vendo o tema antigo por até 30
-> dias após qualquer alteração.
+> Mesmo tipo de bug de cache já achado antes no CSS do Vaultwarden (ver
+> [docs/integracoes/vaultwarden.md](integracoes/vaultwarden.md)). Se
+> depois da correção acima o domínio público ainda continuar servindo
+> versão antiga por mais que ~5-10 minutos, aí sim vale pedir pro time que
+> administra o proxy (192.168.0.218) um purge pontual do cache desse path
+> — mas isso deixa de ser necessário a cada deploy de tema, só pro que já
+> ficou cacheado antes desta correção existir.
 
 5. Inspecione o HTML da página (`Ver código-fonte`) e confirme que o CSS
    carregado é `.../login/prefeitura/css/styles.css`, não

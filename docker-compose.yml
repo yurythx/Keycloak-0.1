@@ -134,6 +134,20 @@ services:
       KC_DB_POOL_MAX_SIZE: 100
       JAVA_OPTS_APPEND: "-Xms2048m -Xmx4096m -XX:+UseG1GC"
       KC_LOG_LEVEL: ${KC_LOG_LEVEL:-INFO}
+
+      # Cache dos arquivos estaticos de tema (CSS/JS/img servidos em
+      # /resources/<hash>/...). Padrao do Keycloak e' 2592000s (30 dias) -
+      # achado real: esse "<hash>" da URL e' derivado da versao/build do
+      # Keycloak, NAO do conteudo dos arquivos do tema (que sao bind mount,
+      # editados por fora da imagem) - entao editar so' o styles.css NUNCA
+      # muda o hash, e o proxy reverso externo (que respeita fielmente esse
+      # header, confirmado batendo exatamente 2592000s) fica servindo a
+      # versao antiga por ate 30 dias a cada alteracao de tema. Reduzido
+      # aqui pra 300s (5 min) - baixo o suficiente pra iteracao de tema
+      # nao ficar presa em cache por dias, alto o suficiente pra nao virar
+      # "sem cache nenhum" nos arquivos vendor (patternfly etc.) que quase
+      # nunca mudam. Ver docs/tema-visual.md, secao de cache do proxy.
+      KC_SPI_THEME_STATIC_MAX_AGE: "300"
     secrets:
       - postgres_password
       - kc_admin_password
