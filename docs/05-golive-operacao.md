@@ -30,6 +30,11 @@ só por convenção de nome de pasta — ver
 antes de agendar o cron. Detalhes em
 [Referência de Scripts](scripts-referencia.md#scriptsbackupsh).
 
+> Além dos dumps de banco, o `backup.sh` também empacota `.env`,
+> `secrets/`, `certs/` e `themes/` (nunca versionados no git) — sem isso
+> não dá pra reconstruir a stack do zero num desastre real, só restaurar
+> o banco. Ver [Restauração Completa (Desastre)](disaster-recovery.md).
+
 ### Métricas para Zabbix/Prometheus
 `KC_METRICS_ENABLED=true` (Keycloak) já vem ativado por padrão nesta
 stack — nenhuma configuração extra necessária pra começar a coletar.
@@ -99,6 +104,10 @@ segurança em [Referência de Scripts](scripts-referencia.md#portainer).
       vez e confirmar que ele **não** aborta com o aviso de "mesmo disco
       da raiz do sistema" — se abortar, `BACKUP_DIR` ainda não está
       apontando para um ponto de montagem externo de verdade.
+- [ ] **`config_<data>.tar.gz` foi gerado** (parte do mesmo
+      `scripts/backup.sh`) e está com `chmod 600` — sem ele, um desastre
+      real perde `.env`/`secrets/`/`certs/`, mesmo com os dumps de banco
+      intactos. Ver [Restauração Completa (Desastre)](disaster-recovery.md).
 
 ---
 Próxima etapa: **[Etapa 6 — Vaultwarden (Cofre de Senhas) →](06-vaultwarden.md)**

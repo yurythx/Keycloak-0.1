@@ -360,21 +360,34 @@ ainda precisa ser feita à parte.
 ## `scripts/backup.sh`
 
 Backup lógico diário dos bancos do Keycloak **e** do Vaultwarden (via
-`pg_dump`, um dump `.sql.gz` para cada), mais um `.tar.gz` do volume de
-dados do Vaultwarden (`rsa_key.pem`, anexos, sends, cache de ícones —
-sem isso, dados cifrados ficam irrecuperáveis mesmo com o dump do banco
-intacto, ver [Etapa 6](06-vaultwarden.md)). Compressão, checagem de erro
-e retenção configurável em todos os artefatos.
+`pg_dump`, um dump `.sql.gz` para cada), um `.tar.gz` do volume de dados
+do Vaultwarden (`rsa_key.pem`, anexos, sends, cache de ícones — sem
+isso, dados cifrados ficam irrecuperáveis mesmo com o dump do banco
+intacto, ver [Etapa 6](06-vaultwarden.md)), **e** um `.tar.gz` do
+**pacote de configuração** (`.env`, `secrets/`, `certs/`, `themes/`,
+`docker-compose.yml`, `Dockerfile`). Compressão, checagem de erro e
+retenção configurável em todos os artefatos.
 
 ```bash
 ./scripts/backup.sh
 BACKUP_DIR=/mnt/outro/lugar RETENTION_DAYS=30 ./scripts/backup.sh
 ```
 
-Gera três arquivos por execução: `keycloak_<data>.sql.gz`,
-`vaultwarden_<data>.sql.gz` e `vaultwarden_data_<data>.tar.gz`. Se
-qualquer um dos três falhar, o script continua tentando os demais mas
-termina com código de saída != 0 (não mascara falha parcial).
+Gera quatro arquivos por execução: `keycloak_<data>.sql.gz`,
+`vaultwarden_<data>.sql.gz`, `vaultwarden_data_<data>.tar.gz` e
+`config_<data>.tar.gz`. Se qualquer um falhar, o script continua
+tentando os demais mas termina com código de saída != 0 (não mascara
+falha parcial).
+
+> ⚠️ **`config_<data>.tar.gz` contém segredos em texto plano** (o mesmo
+> conteúdo de `secrets/`: senha do admin, senha do Postgres, client
+> secret do SSO do Vaultwarden etc.) — sai com `chmod 600` (só o dono lê),
+> mas ainda depende de `BACKUP_DIR` estar num armazenamento com permissão
+> adequada, não um compartilhamento aberto. Sem esse pacote, os dumps do
+> banco sozinhos **não bastam** para reconstruir a stack num desastre
+> real: `.env`, `secrets/` e `certs/` estão no `.gitignore` (nunca
+> versionados) — só existem na VM. Ver
+> [Restauração completa (desastre)](disaster-recovery.md).
 
 Uso recomendado via cron (ver [Etapa 5](05-golive-operacao.md)):
 ```

@@ -79,8 +79,39 @@ else
     FAILED=1
 fi
 
+# Pacote de configuracao (.env, secrets/, certs/, themes/, docker-compose.yml,
+# Dockerfile) - sem isso, os dumps acima sao inuteis num desastre real: .env,
+# secrets/ e certs/ estao no .gitignore (nunca versionados) e so existem
+# nesta VM. Sem eles: senhas erradas ao restaurar (secrets/), federacao AD
+# quebrada por falta do certificado LDAPS (certs/), e SSO do Vaultwarden
+# quebrado se o client secret gerado de novo nao bater com o que ja esta
+# gravado no dump do banco do Keycloak (secrets/vw_sso_client_secret.txt).
+# "themes/" entra tambem como rede de seguranca extra alem do git - ja
+# aconteceu nesta stack de alguem editar o tema direto na VM sem commitar
+# (ver docs/tema-visual.md/historico), entao nao dava pra confiar 100% que
+# o git sozinho reflete o que esta rodando de verdade.
+#
+# ATENCAO - CONTEUDO SENSIVEL: este .tar.gz contem senhas e segredos em
+# texto plano (o mesmo conteudo de secrets/). Tratar com o mesmo cuidado
+# que o proprio secrets/ - BACKUP_DIR precisa ter permissao restrita, e o
+# arquivo em si sai com chmod 600 (dono apenas).
+CONFIG_OUT="${BACKUP_DIR}/config_${DATE}.tar.gz"
+CONFIG_TMP="${CONFIG_OUT}.part"
+echo "[$(date '+%F %T')] Iniciando backup do pacote de configuracao (.env, secrets/, certs/, themes/) -> ${CONFIG_OUT}"
+if tar czf "$CONFIG_TMP" \
+    --exclude='secrets/.gitkeep' --exclude='certs/.gitkeep' \
+    .env secrets/ certs/ themes/ docker-compose.yml Dockerfile 2>/dev/null; then
+    mv "$CONFIG_TMP" "$CONFIG_OUT"
+    chmod 600 "$CONFIG_OUT"
+    echo "[$(date '+%F %T')] Backup concluido: ${CONFIG_OUT} ($(du -h "$CONFIG_OUT" | cut -f1))"
+else
+    rm -f "$CONFIG_TMP"
+    echo "[$(date '+%F %T')] ERRO: falha ao gerar o backup do pacote de configuracao" >&2
+    FAILED=1
+fi
+
 echo "[$(date '+%F %T')] Removendo backups com mais de ${RETENTION_DAYS} dias"
-find "$BACKUP_DIR" \( -name 'keycloak_*.sql.gz' -o -name 'vaultwarden_*.sql.gz' -o -name 'vaultwarden_data_*.tar.gz' \) -mtime "+${RETENTION_DAYS}" -delete
+find "$BACKUP_DIR" \( -name 'keycloak_*.sql.gz' -o -name 'vaultwarden_*.sql.gz' -o -name 'vaultwarden_data_*.tar.gz' -o -name 'config_*.tar.gz' \) -mtime "+${RETENTION_DAYS}" -delete
 
 if [ "$FAILED" = "1" ]; then
     echo "[$(date '+%F %T')] Backup finalizado COM FALHAS - veja os erros acima" >&2

@@ -67,6 +67,7 @@ só precisa operar o dia a dia, vá direto para
 | — | [Exemplo de vhost Nginx (proxy externo)](exemplo-nginx-proxy-externo.conf) | Config de referência para o servidor de proxy reverso da prefeitura — inclui o troubleshooting de erro 502 |
 | — | [Tema Visual (logo e cores)](tema-visual.md) | White-label da tela de login com a identidade visual da prefeitura |
 | — | [Monitoramento e Backup Externo](monitoramento.md) | Métricas Prometheus (Keycloak) para Zabbix, sessões ativas, garantia de backup fora da VM |
+| — | [Restauração Completa (Desastre)](disaster-recovery.md) | Reconstruir a stack do zero numa VM nova: banco + `.env`/`secrets`/`certs`/`themes` |
 | — | [CI/CD e Registry](ci-cd.md) | GitHub Actions, GitLab CI, política de segurança do Trivy |
 | — | [Verificação End-to-End](verificacao-final.md) | Checklist final antes do go-live real |
 
