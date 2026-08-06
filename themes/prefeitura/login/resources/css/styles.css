@@ -10,6 +10,19 @@
  *
  * Confirmado direto no CSS-fonte do Keycloak 26.7.0 (extraido do jar de
  * temas) antes de escrever este arquivo - nao e' suposicao.
+ *
+ * Selecao de classes PatternFly usadas abaixo alem de "#kc-header" /
+ * "#kc-header-wrapper" (esses dois ja' confirmados no HTML real, ver
+ * docs/tema-visual.md): ".pf-v5-c-login__container", ".pf-v5-c-login__main",
+ * ".pf-v5-c-form-control", ".pf-v5-c-check" etc. sao classes publicas e
+ * estaveis do componente "Login" do PatternFly 5 (documentadas no site do
+ * proprio PatternFly, nao internas do Keycloak) - uso de boa fe' por serem
+ * o padrao conhecido da versao, mas ainda NAO conferidas ao vivo contra o
+ * HTML deste Keycloak 26.7.0 especifico. Validar visualmente apos o deploy
+ * (docs/tema-visual.md, secao "Como validar que funcionou") e, se algum
+ * bloco abaixo nao surtir efeito, extrair o template.ftl real do jar como
+ * ja foi feito para o header - o pior caso e' a regra simplesmente nao
+ * aplicar (sem erro), igual aconteceu antes com "div.kc-logo-text".
  */
 
 :root {
@@ -44,6 +57,20 @@
   --prefeitura-primary-hover: #0038A7;
   --prefeitura-on-primary: #ffffff;
 
+  /* ---- Extensoes de design "estilo gov.br" (vida/profundidade) - estas
+     sao decisoes visuais nossas, nao extraidas de nenhum CSS oficial da
+     prefeitura; ajuste livremente sem medo de quebrar contrato nenhum. */
+  --prefeitura-bg-gradient: linear-gradient(
+    160deg,
+    var(--prefeitura-primary-hover) 0%,
+    var(--prefeitura-primary) 55%,
+    #1a8fe3 100%
+  );
+  --prefeitura-card-radius: 16px;
+  --prefeitura-card-shadow: 0 20px 50px rgba(0, 25, 80, 0.25),
+    0 2px 8px rgba(0, 25, 80, 0.12);
+  --prefeitura-focus-ring: 0 0 0 3px rgba(5, 113, 238, 0.25);
+
   /* ---- Botao primario (Entrar, etc.) - variaveis nativas do PatternFly 5.
      Confirmado em patternfly.min.css:
      .pf-v5-c-button.pf-m-primary{background-color:var(--pf-v5-c-button--m-primary--BackgroundColor);
@@ -56,12 +83,37 @@
   --pf-v5-c-button--m-primary--focus--Color: var(--prefeitura-on-primary);
 }
 
-/* Cabecalho/logo de verdade (ver nota no :root acima sobre por que nao e'
-   "div.kc-logo-text"). Por padrao "#kc-header-wrapper" so' mostra o nome
-   do realm como texto grande - substituimos pela imagem da logo com um
-   fundo colorido em formato de "badge" arredondado (padrao comum em
-   portais de governo), e escondemos o texto de forma acessivel (ainda
-   legivel por leitor de tela, so' nao aparece visualmente). */
+/* =========================================================================
+ * Fundo da pagina - estilo "portal de governo" (gov.br, meu.rs.gov.br,
+ * etc.): gradiente institucional ocupando a tela toda, com o card de login
+ * "flutuando" por cima. O keycloak.v2 sem customizacao usa fundo cinza
+ * claro liso - e' o principal motivo do visual "sem vida" original.
+ * ========================================================================= */
+body {
+  min-height: 100vh;
+  background: var(--prefeitura-bg-gradient);
+  background-attachment: fixed;
+}
+
+/* =========================================================================
+ * Cabecalho/logo de verdade (ver nota no :root acima sobre por que nao e'
+ * "div.kc-logo-text"). Por padrao "#kc-header-wrapper" so' mostra o nome
+ * do realm como texto grande - substituimos pela imagem da logo com um
+ * fundo colorido em formato de "badge" arredondado (padrao comum em
+ * portais de governo), e escondemos o texto de forma acessivel (ainda
+ * legivel por leitor de tela, so' nao aparece visualmente).
+ * ========================================================================= */
+
+/* "#kc-header" e' o elemento-pai real (confirmado no template.ftl) - forcar
+   flex+center aqui garante a logo centralizada independente de como o
+   keycloak.v2 alinha o brand por padrao (achado real: sem isso a logo
+   ficava alinhada a esquerda, nao centralizada). */
+#kc-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 #kc-header-wrapper {
   background-image: var(--keycloak-logo-url);
   background-repeat: no-repeat;
@@ -72,10 +124,11 @@
   height: var(--keycloak-logo-height);
   width: var(--keycloak-logo-width);
   max-width: 100%;
-  margin: 0 auto;
+  margin: 0 auto 8px;
   padding: 18px 26px;
   border-radius: 10px;
   box-sizing: content-box;
+  box-shadow: 0 6px 16px rgba(0, 25, 80, 0.25);
 
   /* Esconde o texto do nome do realm visualmente, mantendo acessivel */
   font-size: 0;
@@ -84,12 +137,113 @@
   overflow: hidden;
 }
 
-/* Links dentro do card de login (ex.: "Esqueceu a senha?", "Registrar-se") */
+/* =========================================================================
+ * Card de login - cantos mais suaves, sombra com profundidade real (em vez
+ * do card quase "colado" no fundo do padrao keycloak.v2) e uma pequena
+ * animacao de entrada para nao parecer estatico.
+ * ========================================================================= */
+.pf-v5-c-login__container,
+.pf-v5-c-login__main {
+  border-radius: var(--prefeitura-card-radius);
+}
+
+.pf-v5-c-login__main {
+  box-shadow: var(--prefeitura-card-shadow);
+  animation: prefeitura-card-entrada 0.45s ease-out;
+}
+
+@keyframes prefeitura-card-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respeita quem prefere menos animacao no sistema operacional */
+@media (prefers-reduced-motion: reduce) {
+  .pf-v5-c-login__main {
+    animation: none;
+  }
+}
+
+/* Titulo principal ("Entrar na sua conta", etc.) com mais peso visual */
+#kc-page-title {
+  color: var(--prefeitura-primary-hover);
+  font-weight: 700;
+}
+
+/* =========================================================================
+ * Campos de formulario - estado de foco mais vivo (o padrao PatternFly usa
+ * um azul generico do design system, aqui usamos a cor institucional) e
+ * cantos levemente arredondados para combinar com o card.
+ * ========================================================================= */
+.pf-v5-c-form-control {
+  border-radius: 8px;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.pf-v5-c-form-control:focus {
+  border-color: var(--prefeitura-primary);
+  box-shadow: var(--prefeitura-focus-ring);
+}
+
+/* Checkbox "Lembrar-me" na cor institucional em vez do azul padrao */
+.pf-v5-c-check__input {
+  accent-color: var(--prefeitura-primary);
+}
+
+/* =========================================================================
+ * Botao primario ("Entrar") - alem das cores (ja definidas via variaveis
+ * PatternFly no :root), um leve efeito de elevacao no hover para dar
+ * sensacao de resposta/interatividade.
+ * ========================================================================= */
+.pf-v5-c-button.pf-m-primary {
+  border-radius: 8px;
+  font-weight: 600;
+  transition: transform 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+
+.pf-v5-c-button.pf-m-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 56, 167, 0.35);
+}
+
+.pf-v5-c-button.pf-m-primary:active {
+  transform: translateY(0);
+}
+
+/* =========================================================================
+ * Links dentro do card de login (ex.: "Esqueceu a senha?", "Registrar-se")
+ * ========================================================================= */
 .pf-v5-c-login__main a {
   color: var(--prefeitura-primary);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.12s ease-in-out;
 }
 
 .pf-v5-c-login__main a:hover,
 .pf-v5-c-login__main a:focus {
   color: var(--prefeitura-primary-hover);
+  text-decoration: underline;
+}
+
+/* Rodape do card (voltar, links auxiliares) com contraste mais suave */
+.pf-v5-c-login__main-footer-band,
+.pf-v5-c-login__footer {
+  color: #ffffff;
+}
+
+.pf-v5-c-login__footer a {
+  color: #ffffff;
+  opacity: 0.9;
+}
+
+.pf-v5-c-login__footer a:hover {
+  opacity: 1;
+  text-decoration: underline;
 }

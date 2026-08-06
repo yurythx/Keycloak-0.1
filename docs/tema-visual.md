@@ -3,9 +3,13 @@
 [← Índice](README.md)
 
 Customiza a tela de login do Keycloak com a identidade visual oficial da
-prefeitura — logo no cabeçalho e cores institucionais no botão de entrar
-e nos links. Aplica-se via um tema customizado do Keycloak, versionado
-neste repositório em `themes/prefeitura/`.
+prefeitura — logo centralizada no cabeçalho, cores institucionais no botão
+de entrar e nos links, fundo em gradiente e card com sombra/animação de
+entrada (visual inspirado em portais de governo, tipo gov.br, em vez do
+cinza liso padrão do Keycloak). Aplica-se via um tema customizado do
+Keycloak, versionado neste repositório em `themes/prefeitura/`. Tela 100%
+em português — ver seção [Idioma](#idioma--garantir-que-nada-apareça-em-inglês)
+abaixo, é uma configuração separada do CSS, feita no realm.
 
 ## Antes de tudo: qual tema o Keycloak 26 realmente usa
 
@@ -40,13 +44,17 @@ themes/
 ```properties
 parent=keycloak.v2
 styles=css/styles.css
+locales=pt_BR
 ```
 
 `parent=keycloak.v2` herda **todos** os templates, scripts e traduções do
 tema padrão — só precisamos declarar o que queremos *adicionar* por cima.
 `styles=` é cumulativo: o CSS do `keycloak.v2` continua carregando
 primeiro, o nosso `styles.css` entra **depois**, então conseguimos
-sobrescrever pontualmente em vez de reescrever a tela inteira.
+sobrescrever pontualmente em vez de reescrever a tela inteira. `locales=`
+restringe o tema a só português (esconde o seletor de idioma) — mas ainda
+depende de uma config à parte no realm pra funcionar de verdade, ver
+[Idioma](#idioma--garantir-que-nada-apareça-em-inglês) mais abaixo.
 
 ### `resources/css/styles.css`
 
@@ -60,6 +68,19 @@ confirmadas direto no CSS-fonte do Keycloak, não chutadas:
 | `--keycloak-logo-height` / `--keycloak-logo-width` | Dimensões da área da logo | idem |
 | `--pf-v5-c-button--m-primary--BackgroundColor` / `--Color` | Cor de fundo/texto do botão primário ("Entrar") | `patternfly.min.css` |
 | `--pf-v5-c-button--m-primary--hover--*` / `--focus--*` | Estados de hover/foco do botão | idem |
+
+Além das variáveis oficiais acima, o `styles.css` também sobrescreve
+diretamente algumas classes públicas do componente **Login** do
+PatternFly 5 (`.pf-v5-c-login__container`, `.pf-v5-c-login__main`,
+`.pf-v5-c-form-control`, `.pf-v5-c-check__input`, `.pf-v5-c-button.pf-m-primary`,
+`.pf-v5-c-login__main a`) para o fundo em gradiente, sombra do card,
+animação de entrada, foco dos campos e hover do botão. Diferente das
+variáveis da tabela acima, essas classes **não foram confirmadas ao vivo**
+contra o HTML deste Keycloak 26.7.0 (são o padrão documentado publicamente
+pelo PatternFly, não algo Keycloak-specific) — se algum efeito visual não
+aparecer após o deploy, é o mesmo tipo de situação já registrada abaixo
+com `div.kc-logo-text`: a regra não dá erro, só não encontra o elemento.
+Validar visualmente é obrigatório (seção "Como validar que funcionou").
 
 Por que variáveis CSS em vez de `background-color` direto ou
 `!important`: é o **contrato público** de customização que o próprio
@@ -182,6 +203,55 @@ docker exec keycloak_server sh -c '
 > o `master` fica isolado, uso exclusivo administrativo (ver
 > [Etapa 2](02-configuracao-keycloak.md)).
 
+## Idioma — garantir que nada apareça em inglês
+
+O tema (`theme.properties`) já declara `locales=pt_BR`, o que restringe os
+idiomas *disponíveis* nesse tema a só português — e, como só sobra uma
+opção, o Keycloak automaticamente **esconde o seletor de idioma** da tela
+(nada pra usuário trocar). Mas isso sozinho **não é suficiente**: se o
+realm não tiver a *Internationalization* habilitada, o Keycloak ignora
+essa configuração do tema por completo e usa sempre o locale interno
+padrão, que é **inglês** — é esse o motivo mais provável de qualquer texto
+em inglês aparecendo hoje na tela de login (rótulos como "Username",
+"Password", "Sign In" em vez de "Usuário", "Senha", "Entrar").
+
+Falta habilitar no realm `Prefeitura` (não confundir com `master`):
+
+**Via Admin Console** (recomendado): Realm Settings → **Localization** →
+- `Internationalization` → **Enabled** (liga a chave)
+- `Supported locales` → adicionar **Portuguese (Brazilian)** — pode
+  remover os demais idiomas da lista se não fizer sentido mantê-los
+- `Default locale` → **Portuguese (Brazilian)**
+- Save
+
+**Via linha de comando** (`kcadm.sh` dentro do container):
+```bash
+docker exec keycloak_server sh -c '
+  /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 \
+    --realm master --user kc_admin --password "$(cat /run/secrets/kc_admin_password)"
+  /opt/keycloak/bin/kcadm.sh update realms/Prefeitura \
+    -s internationalizationEnabled=true \
+    -s "supportedLocales=[\"pt-BR\"]" \
+    -s defaultLocale=pt-BR
+'
+```
+
+> **Nota**: o valor correto da API/`kcadm` é `pt-BR` (hífen), enquanto o
+> nome do arquivo de tradução e o `locales=` do `theme.properties` usam
+> `pt_BR` (underscore) — convenção diferente entre a API REST do Keycloak
+> e os arquivos de tema. Os dois já estão corretos nos exemplos acima, mas
+> vale saber pra não confundir se for editar à mão.
+
+O texto dos campos padrão (usuário, senha, botão "Entrar", "Esqueceu a
+senha?", "Lembrar-me" etc.) já vem traduzido de fábrica pelo próprio
+Keycloak (`messages_pt_BR.properties` do tema-base `keycloak.v2`) — não
+precisamos criar tradução própria pra isso. O único texto que continua
+"livre" (não é tradução, é conteúdo que a prefeitura digitou) é o
+**nome/display name do realm**, configurado em Realm Settings → General →
+`Display name` / `HTML Display Name` — confirme que está em português lá
+também, já que esse texto entra no `alt`/título do cabeçalho independente
+de locale.
+
 ## Como validar que funcionou
 
 1. Depois de montar o volume, redeploy: `./deploy.sh` (ou
@@ -192,9 +262,16 @@ docker exec keycloak_server sh -c '
    ```
    (requer login prévio do `kcadm.sh` — ver `scripts/configure_ldap.sh`
    para o padrão completo de autenticação via `kcadm`.)
-3. Acesse a tela de login do realm `Prefeitura` — a logo e as cores devem
-   aparecer. Force um refresh sem cache (`Ctrl+Shift+R`) se ainda ver o
-   visual antigo.
+3. Acesse a tela de login do realm `Prefeitura` — a logo (centralizada),
+   o fundo em gradiente, o card com sombra e as cores devem aparecer.
+   Force um refresh sem cache (`Ctrl+Shift+R`) se ainda ver o visual
+   antigo.
+4. Confira o idioma: todos os rótulos (usuário, senha, botão, links)
+   devem estar em português. Se algo ainda aparecer em inglês, o problema
+   é a configuração de `Internationalization` do realm (seção
+   [Idioma](#idioma--garantir-que-nada-apareça-em-inglês) acima), não o
+   CSS — confirme em Realm Settings → Localization que `Enabled` está
+   ligado e `Default locale` é `Portuguese (Brazilian)`.
 
 > ⚠️ **Achado real: o proxy reverso externo (192.168.0.218) cacheia os
 > arquivos CSS do tema por até 30 dias** (`cache-control: max-age=2592000`
@@ -218,7 +295,7 @@ docker exec keycloak_server sh -c '
 > pelo domínio público podem continuar vendo o tema antigo por até 30
 > dias após qualquer alteração.
 
-4. Inspecione o HTML da página (`Ver código-fonte`) e confirme que o CSS
+5. Inspecione o HTML da página (`Ver código-fonte`) e confirme que o CSS
    carregado é `.../login/prefeitura/css/styles.css`, não
    `.../login/keycloak.v2/css/styles.css`.
 
